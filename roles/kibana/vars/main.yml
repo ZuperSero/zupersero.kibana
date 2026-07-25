@@ -1,0 +1,2 @@
+---
+kibana_major_version: "{{ kibana_version.split('.')[0] }}"

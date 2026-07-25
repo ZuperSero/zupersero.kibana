@@ -1,0 +1,12 @@
+---
+kibana_version: "9.2.1"
+kibana_allow_downgrade: false
+kibana_user: kibana
+kibana_group: kibana
+kibana_config_path: /etc/kibana
+kibana_systemd_service_overrides: ""
+kibana_config_content:
+  server.host: "0.0.0.0"
+  server.port: 5601
+  elasticsearch.hosts:
+    - "http://localhost:9200"

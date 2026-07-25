@@ -1,0 +1,22 @@
+---
+- name: Configure systemd service overrides
+  when: kibana_systemd_service_overrides | length > 0
+  block:
+    - name: Ensure the Kibana systemd override directory exists
+      ansible.builtin.file:
+        path: /etc/systemd/system/kibana.service.d
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Write the Kibana systemd override
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/kibana.service.d/override.conf
+        content: "{{ kibana_systemd_service_overrides }}"
+        owner: root
+        group: root
+        mode: "0644"
+      notify:
+        - Reload systemd
+        - Restart Kibana

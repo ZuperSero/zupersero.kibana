@@ -1,0 +1,15 @@
+---
+- name: Converge
+  hosts: molecule
+  gather_facts: true
+  tasks:
+    - name: Apply the Kibana role
+      ansible.builtin.include_role:
+        name: zupersero.kibana.kibana
+      vars:
+        kibana_config_content:
+          server.host: "0.0.0.0"
+          server.port: 5601
+          elasticsearch.hosts:
+            - http://elasticsearch:9200
+          telemetry.enabled: false

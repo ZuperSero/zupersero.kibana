@@ -1,0 +1,35 @@
+---
+- name: Destroy Molecule infrastructure
+  hosts: localhost
+  gather_facts: false
+  vars:
+    molecule_network: molecule-kibana
+    elasticsearch_container: molecule-kibana-elasticsearch
+  tasks:
+    - name: Remove target containers
+      community.docker.docker_container:
+        name: "{{ item.name }}"
+        state: absent
+        force_kill: true
+      loop: "{{ molecule_yml.platforms }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Remove the Elasticsearch sidecar
+      community.docker.docker_container:
+        name: "{{ elasticsearch_container }}"
+        state: absent
+        force_kill: true
+
+    - name: Remove the Molecule network
+      community.docker.docker_network:
+        name: "{{ molecule_network }}"
+        state: absent
+
+    - name: Clear the Molecule instance configuration
+      ansible.builtin.copy:
+        content: |
+          # Molecule managed
+          {}
+        dest: "{{ molecule_instance_config }}"
+        mode: "0600"

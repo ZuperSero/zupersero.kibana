@@ -216,3 +216,8 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Ansible development artifacts
+.ansible/
+.build/
+tests/output/

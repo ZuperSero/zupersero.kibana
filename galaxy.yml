@@ -1,0 +1,26 @@
+---
+namespace: zupersero
+name: kibana
+version: 1.0.0
+readme: README.md
+authors:
+  - zupersero
+description: Install, configure, and manage Kibana and its APIs with Ansible.
+license:
+  - GPL-3.0-or-later
+license_file: LICENSE
+tags:
+  - elastic
+  - kibana
+  - observability
+  - security
+dependencies:
+  community.general: ">=12.2.0"
+repository: https://github.com/ZuperSero/zupersero.kibana
+documentation: https://galaxy.ansible.com/ui/repo/published/zupersero/kibana
+homepage: https://github.com/ZuperSero/zupersero.kibana
+issues: https://github.com/ZuperSero/zupersero.kibana/issues
+build_ignore:
+  - .venv
+  - .build
+  - tests/output

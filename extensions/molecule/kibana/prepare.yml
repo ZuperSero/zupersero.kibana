@@ -1,0 +1,13 @@
+---
+- name: Prepare target containers
+  hosts: molecule
+  gather_facts: true
+  tasks:
+    - name: Wait for Elasticsearch
+      ansible.builtin.uri:
+        url: http://elasticsearch:9200
+        status_code: 200
+      register: elasticsearch_status
+      retries: 30
+      delay: 5
+      until: elasticsearch_status.status == 200

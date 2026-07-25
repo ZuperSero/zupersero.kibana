@@ -1,0 +1,51 @@
+# zupersero.kibana
+
+An Ansible collection for installing, configuring, and managing Kibana.
+
+## Installation
+
+```sh
+ansible-galaxy collection install zupersero.kibana
+```
+
+API modules use `KIBANA_URL` and either `KIBANA_USERNAME` with
+`KIBANA_PASSWORD`, or `KIBANA_API_KEY`. Optional settings include
+`KIBANA_SPACE` and `KIBANA_VALIDATE_CERTS`.
+
+Included API modules:
+
+- `zupersero.kibana.connector`
+- `zupersero.kibana.data_view`
+- `zupersero.kibana.space`
+
+## Development
+
+Install the development environment and run the role scenario:
+
+```sh
+just init
+just molecule
+```
+
+Run static and Ansible collection checks with:
+
+```sh
+just ruff
+just sanity
+just integration
+```
+
+## Example
+
+```yaml
+- name: Install Kibana
+  hosts: kibana
+  become: true
+  roles:
+    - role: zupersero.kibana.kibana
+      vars:
+        kibana_config_content:
+          server.host: "0.0.0.0"
+          elasticsearch.hosts:
+            - "http://elasticsearch:9200"
+```

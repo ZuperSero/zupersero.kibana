@@ -1,0 +1,37 @@
+---
+- name: Verify Kibana
+  hosts: molecule
+  gather_facts: false
+  tasks:
+    - name: Gather service facts
+      ansible.builtin.service_facts:
+
+    - name: Assert that Kibana is running
+      ansible.builtin.assert:
+        that:
+          - "'kibana.service' in ansible_facts.services"
+          - ansible_facts.services['kibana.service'].state == 'running'
+
+    - name: Wait for the Kibana API
+      ansible.builtin.uri:
+        url: http://localhost:5601/api/status
+        status_code: 200
+        return_content: true
+      register: kibana_status
+      retries: 40
+      delay: 5
+      until:
+        - kibana_status.status == 200
+        - kibana_status.json.status.overall.level == "available"
+
+    - name: Read the Kibana log
+      ansible.builtin.command:
+        cmd: journalctl --unit kibana --no-pager
+      register: kibana_log
+      changed_when: false
+
+    - name: Assert that the log contains no fatal errors
+      ansible.builtin.assert:
+        that:
+          - "'FATAL' not in kibana_log.stdout"
+        fail_msg: "{{ kibana_log.stdout }}"
