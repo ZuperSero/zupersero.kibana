@@ -3,6 +3,61 @@
   hosts: molecule
   gather_facts: false
   tasks:
+    - name: Gather package facts
+      ansible.builtin.package_facts:
+
+    - name: Assert that the Kibana package is installed
+      ansible.builtin.assert:
+        that:
+          - "'kibana' in ansible_facts.packages"
+
+    - name: Inspect the Kibana configuration
+      ansible.builtin.stat:
+        path: /etc/kibana/kibana.yml
+      register: kibana_config_stat
+
+    - name: Assert the Kibana configuration permissions
+      ansible.builtin.assert:
+        that:
+          - kibana_config_stat.stat.exists
+          - kibana_config_stat.stat.pw_name == "kibana"
+          - kibana_config_stat.stat.gr_name == "kibana"
+          - kibana_config_stat.stat.mode == "0660"
+
+    - name: Read the Kibana configuration
+      ansible.builtin.slurp:
+        path: /etc/kibana/kibana.yml
+      register: kibana_config_file
+
+    - name: Decode the Kibana configuration
+      ansible.builtin.set_fact:
+        kibana_rendered_config: "{{ kibana_config_file.content | b64decode | from_yaml }}"
+
+    - name: Assert the Kibana configuration was rendered
+      ansible.builtin.assert:
+        that:
+          - kibana_rendered_config['server.host'] == "0.0.0.0"
+          - kibana_rendered_config['server.port'] == 5601
+          - kibana_rendered_config['elasticsearch.hosts'] == ["http://elasticsearch:9200"]
+          - kibana_rendered_config['telemetry.enabled'] is false
+
+    - name: Read the Kibana service process ID # noqa command-instead-of-module
+      ansible.builtin.command:
+        cmd: systemctl show kibana.service --property=MainPID --value
+      register: kibana_service_pid
+      changed_when: false
+      failed_when: kibana_service_pid.stdout | int <= 0
+
+    - name: Read the Kibana process environment
+      ansible.builtin.slurp:
+        path: "/proc/{{ kibana_service_pid.stdout | trim }}/environ"
+      register: kibana_process_environment
+
+    - name: Assert the systemd override reached the service process
+      ansible.builtin.assert:
+        that:
+          - "'KIBANA_MOLECULE_TEST=enabled' in (kibana_process_environment.content | b64decode)"
+
     - name: Gather service facts
       ansible.builtin.service_facts:
 
@@ -17,12 +72,13 @@
         url: http://localhost:5601/api/status
         status_code: 200
         return_content: true
+        timeout: 10
       register: kibana_status
       retries: 40
       delay: 5
       until:
-        - kibana_status.status == 200
-        - kibana_status.json.status.overall.level == "available"
+        - kibana_status.status | default(0) == 200
+        - kibana_status.json.status.overall.level | default("") == "available"
 
     - name: Read the Kibana log
       ansible.builtin.command:

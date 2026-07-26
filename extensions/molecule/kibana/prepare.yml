@@ -7,7 +7,8 @@
       ansible.builtin.uri:
         url: http://elasticsearch:9200
         status_code: 200
+        timeout: 5
       register: elasticsearch_status
       retries: 30
       delay: 5
-      until: elasticsearch_status.status == 200
+      until: elasticsearch_status.status | default(0) == 200

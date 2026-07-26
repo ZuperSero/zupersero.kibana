@@ -1,6 +1,8 @@
 ---
 kibana_version: "9.2.1"
 kibana_allow_downgrade: false
+kibana_download_timeout: 30
+kibana_package_install_timeout: 1800
 kibana_user: kibana
 kibana_group: kibana
 kibana_config_path: /etc/kibana

@@ -134,7 +134,10 @@ def main() -> None:
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_together=kibana.kibana_required_together(),
-        mutually_exclusive=kibana.kibana_mutually_exclusive(),
+        mutually_exclusive=[
+            *kibana.kibana_mutually_exclusive(),
+            ["title", "index_pattern"],
+        ],
     )
 
     state = module.params["state"]
@@ -145,8 +148,6 @@ def main() -> None:
             module.fail_json(
                 msg="Either `title` or `index_pattern` is required when state is `present`"
             )
-        if not module.params.get("time_field"):
-            module.fail_json(msg="`time_field` is required when state is `present`")
 
     client = kibana.KibanaClient(module)
     data_view_id = module.params["id"]

@@ -21,6 +21,15 @@ documentation: https://galaxy.ansible.com/ui/repo/published/zupersero/kibana
 homepage: https://github.com/ZuperSero/zupersero.kibana
 issues: https://github.com/ZuperSero/zupersero.kibana/issues
 build_ignore:
+  - .ansible
+  - .ansible-lint
   - .venv
   - .build
-  - tests/output
+  - .github
+  - .gitignore
+  - .pytest_cache
+  - .ruff_cache
+  - extensions
+  - justfile
+  - kibana-openapi-source.yaml
+  - tests

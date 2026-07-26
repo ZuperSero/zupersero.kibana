@@ -5,11 +5,23 @@
       - gnupg2
       - python3-dnf-plugin-versionlock
     state: present
+  async: "{{ ansible_check_mode | ternary(0, kibana_package_install_timeout) }}"
+  poll: 10
+
+- name: Download the Elastic signing key
+  ansible.builtin.get_url:
+    url: https://artifacts.elastic.co/GPG-KEY-elasticsearch
+    dest: /tmp/elastic.gpg
+    checksum: sha256:db52809c5f6b27f9c2bed45cb43e398c659275f3d35305653c6750a0db90f5eb
+    owner: root
+    group: root
+    mode: "0644"
+    timeout: "{{ kibana_download_timeout }}"
 
 - name: Import the Elastic signing key
   ansible.builtin.rpm_key:
     state: present
-    key: https://artifacts.elastic.co/GPG-KEY-elasticsearch
+    key: /tmp/elastic.gpg
     fingerprint: 46095ACC8548582C1A2699A9D27D666CD88E42B4
 
 - name: Add the Elastic repository
@@ -25,3 +37,5 @@
     name: "kibana-{{ kibana_version }}"
     state: present
     allow_downgrade: "{{ kibana_allow_downgrade }}"
+  async: "{{ ansible_check_mode | ternary(0, kibana_package_install_timeout) }}"
+  poll: 10

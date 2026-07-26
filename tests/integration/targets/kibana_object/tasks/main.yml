@@ -1,0 +1,158 @@
+---
+- name: Test generic Kibana object module
+  vars:
+    object_id: phase0-generic-object
+    object_path: /api/saved_objects/index-pattern/{id}
+  module_defaults:
+    zupersero.kibana.kibana_object:
+      url: http://localhost:5601
+      username: elastic
+      password: changeme
+
+  block:
+    - name: Preview object creation
+      zupersero.kibana.kibana_object:
+        path: "{{ object_path }}"
+        id: "{{ object_id }}"
+        create_method: POST
+        payload:
+          attributes:
+            title: "phase0-logs-*"
+            timeFieldName: "@timestamp"
+      check_mode: true
+      diff: true
+      register: create_check
+
+    - name: Assert creation check mode and diff
+      ansible.builtin.assert:
+        that:
+          - create_check is changed
+          - create_check.object.attributes.title == 'phase0-logs-*'
+          - create_check.diff.after.attributes.timeFieldName == '@timestamp'
+
+    - name: Create generic object
+      zupersero.kibana.kibana_object:
+        path: "{{ object_path }}"
+        id: "{{ object_id }}"
+        create_method: POST
+        payload:
+          attributes:
+            title: "phase0-logs-*"
+            timeFieldName: "@timestamp"
+      register: create_result
+
+    - name: Assert object creation
+      ansible.builtin.assert:
+        that:
+          - create_result is changed
+          - create_result.status in [200, 201]
+          - create_result.object.id == object_id
+
+    - name: Reconcile the same generic object
+      zupersero.kibana.kibana_object:
+        path: "{{ object_path }}"
+        id: "{{ object_id }}"
+        payload:
+          attributes:
+            title: "phase0-logs-*"
+            timeFieldName: "@timestamp"
+      register: create_again
+
+    - name: Assert object creation is idempotent
+      ansible.builtin.assert:
+        that:
+          - create_again is not changed
+
+    - name: Preview generic object update
+      zupersero.kibana.kibana_object:
+        path: "{{ object_path }}"
+        id: "{{ object_id }}"
+        payload:
+          attributes:
+            title: "phase0-metrics-*"
+            timeFieldName: "@timestamp"
+      check_mode: true
+      register: update_check
+
+    - name: Assert update check mode
+      ansible.builtin.assert:
+        that:
+          - update_check is changed
+          - update_check.object.attributes.title == 'phase0-metrics-*'
+
+    - name: Update generic object
+      zupersero.kibana.kibana_object:
+        path: "{{ object_path }}"
+        id: "{{ object_id }}"
+        payload:
+          attributes:
+            title: "phase0-metrics-*"
+            timeFieldName: "@timestamp"
+      register: update_result
+
+    - name: Assert object update
+      ansible.builtin.assert:
+        that:
+          - update_result is changed
+          - update_result.object.attributes.title == 'phase0-metrics-*'
+
+    - name: Reconcile the updated generic object
+      zupersero.kibana.kibana_object:
+        path: "{{ object_path }}"
+        id: "{{ object_id }}"
+        payload:
+          attributes:
+            title: "phase0-metrics-*"
+            timeFieldName: "@timestamp"
+      register: update_again
+
+    - name: Assert object update is idempotent
+      ansible.builtin.assert:
+        that:
+          - update_again is not changed
+
+    - name: Preview generic object deletion
+      zupersero.kibana.kibana_object:
+        path: "{{ object_path }}"
+        id: "{{ object_id }}"
+        state: absent
+      check_mode: true
+      register: delete_check
+
+    - name: Assert deletion check mode
+      ansible.builtin.assert:
+        that:
+          - delete_check is changed
+
+    - name: Delete generic object
+      zupersero.kibana.kibana_object:
+        path: "{{ object_path }}"
+        id: "{{ object_id }}"
+        state: absent
+      register: delete_result
+
+    - name: Assert object deletion
+      ansible.builtin.assert:
+        that:
+          - delete_result is changed
+          - delete_result.object is none
+
+    - name: Delete generic object again
+      zupersero.kibana.kibana_object:
+        path: "{{ object_path }}"
+        id: "{{ object_id }}"
+        state: absent
+      register: delete_again
+
+    - name: Assert object deletion is idempotent
+      ansible.builtin.assert:
+        that:
+          - delete_again is not changed
+
+  always:
+    - name: Clean up generic object
+      zupersero.kibana.kibana_object:
+        path: "{{ object_path }}"
+        id: "{{ object_id }}"
+        state: absent
+      failed_when: false

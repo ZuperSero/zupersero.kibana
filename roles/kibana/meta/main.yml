@@ -36,6 +36,14 @@ argument_specs:
         description: Allow the package manager to downgrade Kibana.
         type: bool
         default: false
+      kibana_download_timeout:
+        description: Timeout in seconds for repository signing key downloads.
+        type: int
+        default: 30
+      kibana_package_install_timeout:
+        description: Maximum runtime in seconds for package manager operations.
+        type: int
+        default: 1800
       kibana_user:
         description: User that owns Kibana configuration.
         type: str

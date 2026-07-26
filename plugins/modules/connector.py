@@ -244,6 +244,22 @@ def normalize_connector_data(connector: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def project_managed_config(current: Any, desired: Any) -> Any:
+    """
+    Project server-returned config onto the keys supplied by the user.
+
+    Kibana enriches connector configuration with type-specific defaults. Those
+    server-owned keys must not make an otherwise identical connector appear
+    changed.
+    """
+    if isinstance(desired, dict) and isinstance(current, dict):
+        return {
+            key: project_managed_config(current.get(key), value)
+            for key, value in desired.items()
+        }
+    return current
+
+
 def main() -> None:
     """Run the connector module."""
     from ansible_collections.zupersero.kibana.plugins.module_utils import kibana
@@ -328,6 +344,9 @@ def main() -> None:
                 module.fail_json(msg="`id` is required to update an existing connector")
             current_normalized = normalize_connector_data(current_connector or {})
             desired_normalized = normalize_connector_data(desired_connector)
+            current_normalized["config"] = project_managed_config(
+                current_normalized["config"], desired_normalized["config"]
+            )
 
             # Connector type cannot be changed once created
             if (

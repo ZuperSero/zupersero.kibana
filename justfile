@@ -1,14 +1,14 @@
 init:
     uv venv --allow-existing --python 3.11
     uv pip install --python .venv/bin/python \
-        ansible-core==2.19.5 \
-        ansible-lint==26.1.1 \
-        coverage==7.6.1 \
-        ruff==0.14.13 \
-        molecule \
-        "molecule-plugins[docker]" \
-        antsibull-core==3.5.0 \
-        antsibull-docs==2.24.0
+        "ansible-core>=2.19.5" \
+        "ansible-lint>=26.1.1" \
+        "coverage==7.6.1" \
+        "ruff>=0.14.13" \
+        "molecule>=26.6.0" \
+        "molecule-plugins[docker]>=26.7.15" \
+        "antsibull-core>=3.5.0" \
+        "antsibull-docs>=2.24.0"
     .venv/bin/ansible-galaxy collection install \
         -r extensions/molecule/kibana/collections.yml \
         --force

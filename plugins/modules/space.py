@@ -15,6 +15,8 @@ description:
 version_added: "1.0.0"
 author:
   - Zupersero (@zupersero)
+extends_documentation_fragment:
+  - zupersero.kibana.kibana
 options:
   id:
     description:

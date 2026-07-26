@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 from typing import TYPE_CHECKING, Any
+from urllib.parse import quote
 
 if TYPE_CHECKING:
     from .. import kibana
@@ -22,7 +23,11 @@ class ConnectorService:
             client (kibana.KibanaClient): The Kibana client.
         """
         self.client = client
-        self.base_path = "/api/actions"
+        space_id = self.client.space_id
+        if space_id and space_id != "default":
+            self.base_path = f"/s/{quote(space_id, safe='')}/api/actions"
+        else:
+            self.base_path = "/api/actions"
 
     def get(self, connector_id: str) -> tuple[int, dict[str, Any] | None]:
         """

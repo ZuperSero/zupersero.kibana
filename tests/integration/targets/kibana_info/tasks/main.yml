@@ -1,0 +1,23 @@
+---
+- name: Test generic Kibana info module
+  module_defaults:
+    zupersero.kibana.kibana_info:
+      url: http://localhost:5601
+      username: elastic
+      password: changeme
+
+  block:
+    - name: Read version information
+      zupersero.kibana.kibana_info:
+        path: /api/status
+        response_path: version
+      check_mode: true
+      register: info_result
+
+    - name: Assert info is read-only and check-safe
+      ansible.builtin.assert:
+        that:
+          - info_result is not changed
+          - info_result.status == 200
+          - info_result.objects | length == 1
+          - info_result.objects[0].number is string
