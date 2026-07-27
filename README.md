@@ -14,8 +14,14 @@ API modules use `KIBANA_URL` and either `KIBANA_USERNAME` with
 
 Included API modules:
 
+- `zupersero.kibana.alerting_rule`
 - `zupersero.kibana.connector`
 - `zupersero.kibana.data_view`
+- `zupersero.kibana.dashboard_transfer`
+- `zupersero.kibana.maintenance_window`
+- `zupersero.kibana.saved_object`
+- `zupersero.kibana.saved_objects_export`
+- `zupersero.kibana.saved_objects_import`
 - `zupersero.kibana.space`
 
 ## Development

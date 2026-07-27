@@ -247,6 +247,58 @@ def test_404_and_malformed_success_responses_are_preserved(monkeypatch):
     assert client.get("/api/text") == (200, "not-json")
 
 
+def test_raw_request_body_is_not_json_encoded(monkeypatch):
+    calls = []
+
+    def fake_fetch(_module, url, **kwargs):
+        calls.append((url, kwargs))
+        return FakeResponse({"success": True}), {"status": 200}
+
+    monkeypatch.setattr(kibana, "fetch_url", fake_fetch)
+    client = kibana.KibanaClient(FakeModule())
+    body = b"--boundary\r\nopaque ndjson\r\n--boundary--\r\n"
+
+    status, response = client.request(
+        "POST",
+        "/api/saved_objects/_import",
+        data=body,
+        headers={"Content-Type": "multipart/form-data; boundary=boundary"},
+        serialize_json=False,
+    )
+
+    assert status == 200
+    assert response == {"success": True}
+    assert calls[0][1]["data"] == body
+    assert (
+        calls[0][1]["headers"]["Content-Type"]
+        == "multipart/form-data; boundary=boundary"
+    )
+
+
+def test_response_can_be_preserved_as_opaque_text(monkeypatch):
+    content = (
+        '{"type":"dashboard","id":"one",'
+        '"attributes":{"title":"must-not-leak"}}'
+    )
+    monkeypatch.setattr(
+        kibana,
+        "fetch_url",
+        lambda *_args, **_kwargs: (FakeResponse(content), {"status": 200}),
+    )
+    client = kibana.KibanaClient(FakeModule(api_key="must-not-leak"))
+
+    status, response = client.request(
+        "POST",
+        "/api/saved_objects/_export",
+        data={"objects": [{"type": "dashboard", "id": "one"}]},
+        deserialize_json=False,
+        sanitize_success_response=False,
+    )
+
+    assert status == 200
+    assert response == content
+
+
 @pytest.mark.parametrize(
     "path",
     [
@@ -289,6 +341,17 @@ def test_space_scoping_cannot_hide_an_absolute_path():
 
     with pytest.raises(ModuleFailure, match="relative"):
         client.space_path("https://attacker.example.test/api/status")
+
+
+def test_space_path_accepts_an_explicit_space_without_mutating_client_default():
+    client = kibana.KibanaClient(FakeModule(space="configured"))
+
+    assert client.space_path("/api/status", space_id="source / one") == (
+        "/s/source%20%2F%20one/api/status"
+    )
+    assert client.space_path("/api/status", space_id="default") == "/api/status"
+    assert client.space_path("/api/status") == "/s/configured/api/status"
+    assert client.space_id == "configured"
 
 
 def test_fingerprint_rejects_http_endpoint():

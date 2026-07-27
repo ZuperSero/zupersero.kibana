@@ -15,8 +15,14 @@ These targets exercise the Kibana API modules in `zupersero.kibana`.
 ansible-test integration
 
 # Individual targets
+ansible-test integration alerting_rule
 ansible-test integration connector
 ansible-test integration data_view
+ansible-test integration dashboard_transfer
+ansible-test integration maintenance_window
+ansible-test integration saved_object
+ansible-test integration saved_objects_export
+ansible-test integration saved_objects_import
 ansible-test integration space
 ```
 

@@ -1,0 +1,233 @@
+---
+- name: Test alerting_rule lifecycle in a Kibana space
+  vars:
+    alerting_rule_space: phase1-alerting-rule-space
+    alerting_rule_id: phase1-alerting-rule
+    alerting_rule_params:
+      index:
+        - "phase1-alerting-missing-*"
+      timeField: "@timestamp"
+      aggType: count
+      groupBy: all
+      thresholdComparator: ">"
+      threshold:
+        - 999999
+      timeWindowSize: 5
+      timeWindowUnit: m
+  module_defaults:
+    zupersero.kibana.alerting_rule:
+      url: http://127.0.0.1:5601
+      username: elastic
+      password: changeme
+      space: "{{ alerting_rule_space }}"
+    zupersero.kibana.space:
+      url: http://127.0.0.1:5601
+      username: elastic
+      password: changeme
+
+  block:
+    - name: Create alerting rule test space
+      zupersero.kibana.space:
+        id: "{{ alerting_rule_space }}"
+        name: Phase 1 Alerting Rule Integration
+        state: present
+
+    - name: Preview alerting rule creation
+      zupersero.kibana.alerting_rule:
+        id: "{{ alerting_rule_id }}"
+        name: Phase 1 integration rule
+        rule_type_id: .index-threshold
+        consumer: stackAlerts
+        enabled: false
+        schedule:
+          interval: 1h
+        params: "{{ alerting_rule_params }}"
+        actions: []
+        tags: [phase1, integration]
+      check_mode: true
+      diff: true
+      register: create_check
+
+    - name: Assert alerting rule creation check mode
+      ansible.builtin.assert:
+        that:
+          - create_check is changed
+          - create_check.rule.id == alerting_rule_id
+          - create_check.rule.enabled is false
+          - create_check.rule.schedule.interval == '1h'
+          - create_check.diff.before == {}
+
+    - name: Create disabled alerting rule without connector actions
+      zupersero.kibana.alerting_rule:
+        id: "{{ alerting_rule_id }}"
+        name: Phase 1 integration rule
+        rule_type_id: .index-threshold
+        consumer: stackAlerts
+        enabled: false
+        schedule:
+          interval: 1h
+        params: "{{ alerting_rule_params }}"
+        actions: []
+        tags: [phase1, integration]
+      register: create_result
+
+    - name: Assert alerting rule creation
+      ansible.builtin.assert:
+        that:
+          - create_result is changed
+          - create_result.status in [200, 201]
+          - create_result.rule.id == alerting_rule_id
+          - create_result.rule.rule_type_id == '.index-threshold'
+          - create_result.rule.consumer == 'stackAlerts'
+          - create_result.rule.enabled is false
+          - create_result.rule.actions == []
+
+    - name: Reconcile created alerting rule
+      zupersero.kibana.alerting_rule:
+        id: "{{ alerting_rule_id }}"
+        name: Phase 1 integration rule
+        rule_type_id: .index-threshold
+        consumer: stackAlerts
+        enabled: false
+        schedule:
+          interval: 1h
+        params: "{{ alerting_rule_params }}"
+        actions: []
+        tags: [phase1, integration]
+      register: create_again
+
+    - name: Assert alerting rule creation is idempotent
+      ansible.builtin.assert:
+        that:
+          - create_again is not changed
+          - create_again.status == 200
+          - create_again.rule.id == alerting_rule_id
+
+    - name: Preview schedule-only update and enable
+      zupersero.kibana.alerting_rule:
+        id: "{{ alerting_rule_id }}"
+        enabled: true
+        schedule:
+          interval: 2h
+      check_mode: true
+      diff: true
+      register: update_check
+
+    - name: Assert schedule and enabled check mode
+      ansible.builtin.assert:
+        that:
+          - update_check is changed
+          - update_check.rule.enabled is true
+          - update_check.rule.schedule.interval == '2h'
+          - update_check.rule.actions == []
+          - update_check.rule.tags == ['phase1', 'integration']
+
+    - name: Confirm update check mode did not mutate the rule
+      zupersero.kibana.alerting_rule:
+        id: "{{ alerting_rule_id }}"
+        enabled: false
+        schedule:
+          interval: 1h
+      register: after_update_check
+
+    - name: Assert update check mode was non-mutating
+      ansible.builtin.assert:
+        that:
+          - after_update_check is not changed
+
+    - name: Update schedule and enable alerting rule
+      zupersero.kibana.alerting_rule:
+        id: "{{ alerting_rule_id }}"
+        enabled: true
+        schedule:
+          interval: 2h
+      register: update_result
+
+    - name: Assert schedule update preserved omitted writable fields
+      ansible.builtin.assert:
+        that:
+          - update_result is changed
+          - update_result.status == 200
+          - update_result.rule.enabled is true
+          - update_result.rule.schedule.interval == '2h'
+          - update_result.rule.actions == []
+          - update_result.rule.tags == ['phase1', 'integration']
+
+    - name: Disable alerting rule
+      zupersero.kibana.alerting_rule:
+        id: "{{ alerting_rule_id }}"
+        enabled: false
+      register: disable_result
+
+    - name: Assert alerting rule was disabled
+      ansible.builtin.assert:
+        that:
+          - disable_result is changed
+          - disable_result.rule.enabled is false
+          - disable_result.rule.schedule.interval == '2h'
+
+    - name: Disable alerting rule again
+      zupersero.kibana.alerting_rule:
+        id: "{{ alerting_rule_id }}"
+        enabled: false
+      register: disable_again
+
+    - name: Assert disabled state is idempotent
+      ansible.builtin.assert:
+        that:
+          - disable_again is not changed
+          - disable_again.rule.enabled is false
+
+    - name: Preview alerting rule deletion
+      zupersero.kibana.alerting_rule:
+        id: "{{ alerting_rule_id }}"
+        state: absent
+      check_mode: true
+      diff: true
+      register: delete_check
+
+    - name: Assert alerting rule deletion check mode
+      ansible.builtin.assert:
+        that:
+          - delete_check is changed
+          - delete_check.rule.id == alerting_rule_id
+          - delete_check.diff.after == {}
+
+    - name: Delete alerting rule
+      zupersero.kibana.alerting_rule:
+        id: "{{ alerting_rule_id }}"
+        state: absent
+      register: delete_result
+
+    - name: Assert alerting rule deletion
+      ansible.builtin.assert:
+        that:
+          - delete_result is changed
+          - delete_result.status in [200, 204]
+          - delete_result.rule is none
+
+    - name: Delete alerting rule again
+      zupersero.kibana.alerting_rule:
+        id: "{{ alerting_rule_id }}"
+        state: absent
+      register: delete_again
+
+    - name: Assert alerting rule deletion is idempotent
+      ansible.builtin.assert:
+        that:
+          - delete_again is not changed
+          - delete_again.status == 404
+          - delete_again.rule is none
+
+  always:
+    - name: Clean up alerting rule
+      zupersero.kibana.alerting_rule:
+        id: "{{ alerting_rule_id }}"
+        state: absent
+      failed_when: false
+
+    - name: Clean up alerting rule test space
+      zupersero.kibana.space:
+        id: "{{ alerting_rule_space }}"
+        state: absent
+      failed_when: false

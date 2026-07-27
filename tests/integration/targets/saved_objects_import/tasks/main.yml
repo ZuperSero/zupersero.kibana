@@ -1,0 +1,183 @@
+---
+- name: Test saved_objects_import between Kibana spaces
+  vars:
+    import_source_space: phase1-saved-objects-import-source
+    import_target_space: phase1-saved-objects-import-target
+    import_object_id: phase1-import-object
+  module_defaults:
+    zupersero.kibana.saved_object:
+      url: http://127.0.0.1:5601
+      username: elastic
+      password: changeme
+    zupersero.kibana.saved_objects_export:
+      url: http://127.0.0.1:5601
+      username: elastic
+      password: changeme
+    zupersero.kibana.saved_objects_import:
+      url: http://127.0.0.1:5601
+      username: elastic
+      password: changeme
+    zupersero.kibana.space:
+      url: http://127.0.0.1:5601
+      username: elastic
+      password: changeme
+
+  block:
+    - name: Create saved-object import source space
+      zupersero.kibana.space:
+        id: "{{ import_source_space }}"
+        name: Phase 1 Saved Objects Import Source
+        state: present
+
+    - name: Create saved-object import target space
+      zupersero.kibana.space:
+        id: "{{ import_target_space }}"
+        name: Phase 1 Saved Objects Import Target
+        state: present
+
+    - name: Create saved-object import fixture
+      zupersero.kibana.saved_object:
+        space: "{{ import_source_space }}"
+        type: index-pattern
+        id: "{{ import_object_id }}"
+        attributes:
+          title: "phase1-import-*"
+          timeFieldName: "@timestamp"
+        references: []
+        state: present
+
+    - name: Export source object as opaque NDJSON
+      zupersero.kibana.saved_objects_export:
+        space: "{{ import_source_space }}"
+        objects:
+          - type: index-pattern
+            id: "{{ import_object_id }}"
+        exclude_export_details: true
+      register: source_export
+
+    - name: Preview saved-object import
+      zupersero.kibana.saved_objects_import:
+        space: "{{ import_target_space }}"
+        content: "{{ source_export.ndjson }}"
+      check_mode: true
+      register: import_check
+
+    - name: Assert import check mode predicts an action
+      ansible.builtin.assert:
+        that:
+          - import_check is changed
+          - import_check.status is none
+          - import_check.record_count == 1
+          - import_check.success_count == 0
+
+    - name: Confirm import check mode did not create the object
+      zupersero.kibana.saved_object:
+        space: "{{ import_target_space }}"
+        type: index-pattern
+        id: "{{ import_object_id }}"
+        state: absent
+      register: after_import_check
+
+    - name: Assert import check mode was non-mutating
+      ansible.builtin.assert:
+        that:
+          - after_import_check is not changed
+          - after_import_check.status == 404
+
+    - name: Import saved object into target space
+      zupersero.kibana.saved_objects_import:
+        space: "{{ import_target_space }}"
+        content: "{{ source_export.ndjson }}"
+      register: import_result
+
+    - name: Assert saved-object import action
+      ansible.builtin.assert:
+        that:
+          - import_result is changed
+          - import_result.status == 200
+          - import_result.success_count == 1
+          - import_result.errors | length == 0
+          - import_result.success_results[0].id == import_object_id
+
+    - name: Verify imported object state
+      zupersero.kibana.saved_object:
+        space: "{{ import_target_space }}"
+        type: index-pattern
+        id: >-
+          {{
+            import_result.success_results[0].destinationId
+            | default(import_object_id, true)
+          }}
+        attributes:
+          title: "phase1-import-*"
+          timeFieldName: "@timestamp"
+        references: []
+        state: present
+      register: imported_object
+
+    - name: Assert imported object requires no reconciliation
+      ansible.builtin.assert:
+        that:
+          - imported_object is not changed
+          - imported_object.saved_object.attributes.title == 'phase1-import-*'
+
+    - name: Import conflicting object without overwrite
+      zupersero.kibana.saved_objects_import:
+        space: "{{ import_target_space }}"
+        content: "{{ source_export.ndjson }}"
+      register: conflict_import
+      ignore_errors: true
+
+    - name: Assert conflict is an actionable failed import
+      ansible.builtin.assert:
+        that:
+          - conflict_import is failed
+          - conflict_import is not changed
+          - conflict_import.status == 200
+          - conflict_import.success_count == 0
+          - conflict_import.errors | length >= 1
+
+    - name: Import saved object with overwrite and compatibility mode
+      zupersero.kibana.saved_objects_import:
+        space: "{{ import_target_space }}"
+        content: "{{ source_export.ndjson }}"
+        overwrite: true
+        compatibility_mode: true
+      register: overwrite_import
+
+    - name: Assert accepted overwrite remains an explicit action
+      ansible.builtin.assert:
+        that:
+          - overwrite_import is changed
+          - overwrite_import.status == 200
+          - overwrite_import.success_count == 1
+          - overwrite_import.errors | length == 0
+
+    - name: Import saved object as a new copy
+      zupersero.kibana.saved_objects_import:
+        space: "{{ import_target_space }}"
+        content: "{{ source_export.ndjson }}"
+        create_new_copies: true
+      register: copy_import
+
+    - name: Assert new-copy import reports destination identifier
+      ansible.builtin.assert:
+        that:
+          - copy_import is changed
+          - copy_import.status == 200
+          - copy_import.success_count == 1
+          - copy_import.success_results[0].destinationId is defined
+          - copy_import.success_results[0].destinationId != import_object_id
+
+  always:
+    - name: Clean up saved-object import source space
+      zupersero.kibana.space:
+        id: "{{ import_source_space }}"
+        state: absent
+      failed_when: false
+
+    - name: Clean up saved-object import target space
+      zupersero.kibana.space:
+        id: "{{ import_target_space }}"
+        state: absent
+      failed_when: false

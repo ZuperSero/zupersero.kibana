@@ -409,10 +409,13 @@ class KibanaClient:
         from ansible_collections.zupersero.kibana.plugins.module_utils.kibana_services import (
             AgentPolicyService,
             AgentService,
+            AlertingRuleService,
             ConnectorService,
             DataViewService,
             EPMService,
+            MaintenanceWindowService,
             RoleService,
+            SavedObjectService,
             SpaceService,
         )
 
@@ -459,9 +462,12 @@ class KibanaClient:
         self.epm = EPMService(self)
         self.agent_policies = AgentPolicyService(self)
         self.agents = AgentService(self)
+        self.alerting_rules = AlertingRuleService(self)
         self.data_views = DataViewService(self)
         self.connectors = ConnectorService(self)
         self.roles = RoleService(self)
+        self.saved_objects = SavedObjectService(self)
+        self.maintenance_windows = MaintenanceWindowService(self)
 
     @property
     def _secret_values(self) -> list[str | None]:
@@ -571,12 +577,18 @@ class KibanaClient:
         self._fingerprint_verified_endpoints.add(endpoint)
 
     @staticmethod
-    def _decode_response(response: Any, info: Mapping[str, Any]) -> Any:
+    def _decode_response(
+        response: Any,
+        info: Mapping[str, Any],
+        deserialize_json: bool = True,
+    ) -> Any:
         body = response.read() if response is not None else info.get("body")
         if not body:
             return None
         if isinstance(body, bytes):
             body = body.decode("utf-8", errors="replace")
+        if not deserialize_json:
+            return body
         try:
             return json.loads(body)
         except (TypeError, ValueError):
@@ -590,11 +602,18 @@ class KibanaClient:
         data: Any = None,
         extra_headers: Mapping[str, Any] | None = None,
         sensitive_fields: Iterable[str] | None = None,
+        serialize_json: bool = True,
+        deserialize_json: bool = True,
+        sanitize_success_response: bool = True,
     ) -> tuple[int, Any]:
         self._preflight_fingerprint(endpoint)
         url = f"{endpoint}/{path.lstrip('/')}"
         headers = self._request_headers(extra_headers)
-        body = json.dumps(data) if data is not None else None
+        body = (
+            json.dumps(data)
+            if data is not None and serialize_json
+            else data
+        )
         response, info = fetch_url(
             self.module,
             url,
@@ -611,7 +630,11 @@ class KibanaClient:
             ],
         )
         status = int(info.get("status", -1))
-        response_data = self._decode_response(response, info)
+        response_data = self._decode_response(
+            response,
+            info,
+            deserialize_json=deserialize_json if 200 <= status < 300 else True,
+        )
         sanitized_response = sanitize(response_data, secret_values=self._secret_values)
         sanitized_error_response = sanitize(
             sanitized_response,
@@ -619,7 +642,12 @@ class KibanaClient:
         )
 
         if 200 <= status < 300:
-            return status, sanitized_response
+            return (
+                status,
+                sanitized_response
+                if sanitize_success_response
+                else response_data,
+            )
         if status < 0 or status in self.retry_status_codes:
             message = sanitize(info.get("msg", "request failed"), secret_values=self._secret_values)
             raise KibanaRetryableError(
@@ -649,6 +677,9 @@ class KibanaClient:
         data: Any = None,
         extra_headers: Mapping[str, Any] | None = None,
         sensitive_fields: Iterable[str] | None = None,
+        serialize_json: bool = True,
+        deserialize_json: bool = True,
+        sanitize_success_response: bool = True,
     ) -> tuple[int, Any]:
         try:
             validate_api_path(path)
@@ -671,6 +702,9 @@ class KibanaClient:
                     data,
                     extra_headers,
                     sensitive_fields,
+                    serialize_json,
+                    deserialize_json,
+                    sanitize_success_response,
                 )
                 self._active_endpoint_index = endpoint_index
                 return result
@@ -703,6 +737,9 @@ class KibanaClient:
         headers: Mapping[str, Any] | None = None,
         query: Mapping[str, Any] | None = None,
         sensitive_fields: Iterable[str] | None = None,
+        serialize_json: bool = True,
+        deserialize_json: bool = True,
+        sanitize_success_response: bool = True,
     ) -> tuple[int, Any]:
         """Send an arbitrary HTTP request."""
         try:
@@ -715,6 +752,9 @@ class KibanaClient:
             data=data,
             extra_headers=headers,
             sensitive_fields=sensitive_fields,
+            serialize_json=serialize_json,
+            deserialize_json=deserialize_json,
+            sanitize_success_response=sanitize_success_response,
         )
 
     def get(self, path: str, headers: dict | None = None) -> tuple[int, Any]:
@@ -738,15 +778,20 @@ class KibanaClient:
     def delete(self, path: str, headers: dict | None = None) -> tuple[int, Any]:
         return self.request("DELETE", path, headers=headers)
 
-    def space_path(self, path: str) -> str:
-        """Scope an API path to the configured Kibana space."""
+    def space_path(self, path: str, space_id: str | None = None) -> str:
+        """Scope an API path to an explicit or configured Kibana space."""
         try:
             validate_api_path(path)
         except ValueError as error:
             self.module.fail_json(msg=str(error))
-        if not self.space_id or self.space_id == "default" or path.startswith("/s/"):
+        selected_space = self.space_id if space_id is None else space_id
+        if (
+            not selected_space
+            or selected_space == "default"
+            or path.startswith("/s/")
+        ):
             return path
-        return f"/s/{quote(self.space_id, safe='')}/{path.lstrip('/')}"
+        return f"/s/{quote(selected_space, safe='')}/{path.lstrip('/')}"
 
     def paginate(
         self,

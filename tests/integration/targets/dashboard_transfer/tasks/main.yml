@@ -1,0 +1,212 @@
+---
+- name: Test dashboard_transfer across Kibana spaces
+  vars:
+    transfer_source_space: phase1-dashboard-transfer-source
+    transfer_target_space: phase1-dashboard-transfer-target
+    transfer_fixture_dashboard_id: phase1-dashboard-transfer
+  module_defaults:
+    zupersero.kibana.dashboard_transfer:
+      url: http://127.0.0.1:5601
+      username: elastic
+      password: changeme
+    zupersero.kibana.saved_objects_export:
+      url: http://127.0.0.1:5601
+      username: elastic
+      password: changeme
+    zupersero.kibana.saved_objects_import:
+      url: http://127.0.0.1:5601
+      username: elastic
+      password: changeme
+    zupersero.kibana.space:
+      url: http://127.0.0.1:5601
+      username: elastic
+      password: changeme
+
+  block:
+    - name: Create dashboard transfer source space
+      zupersero.kibana.space:
+        id: "{{ transfer_source_space }}"
+        name: Phase 1 Dashboard Transfer Source
+        state: present
+
+    - name: Create dashboard transfer target space
+      zupersero.kibana.space:
+        id: "{{ transfer_target_space }}"
+        name: Phase 1 Dashboard Transfer Target
+        state: present
+
+    - name: Import the Kibana 9.2 dashboard fixture into the source
+      zupersero.kibana.saved_objects_import:
+        space: "{{ transfer_source_space }}"
+        content: "{{ lookup('ansible.builtin.file', 'dashboard.ndjson') }}"
+      register: transfer_fixture_import
+
+    - name: Select the imported source dashboard identifier
+      ansible.builtin.set_fact:
+        transfer_source_dashboard: >-
+          {{
+            transfer_fixture_import.success_results
+            | selectattr('type', 'equalto', 'dashboard')
+            | first
+          }}
+        transfer_source_dependency: >-
+          {{
+            transfer_fixture_import.success_results
+            | selectattr('type', 'equalto', 'index-pattern')
+            | first
+          }}
+
+    - name: Normalize source identifiers after any Kibana remapping
+      ansible.builtin.set_fact:
+        transfer_source_dashboard_id: >-
+          {{
+            transfer_source_dashboard.destinationId
+            | default(transfer_source_dashboard.id, true)
+          }}
+        transfer_source_dependency_id: >-
+          {{
+            transfer_source_dependency.destinationId
+            | default(transfer_source_dependency.id, true)
+          }}
+
+    - name: Preview dashboard transfer
+      zupersero.kibana.dashboard_transfer:
+        space: "{{ transfer_source_space }}"
+        target_space: "{{ transfer_target_space }}"
+        dashboard_id: "{{ transfer_source_dashboard_id }}"
+      check_mode: true
+      register: transfer_check
+
+    - name: Assert dashboard transfer check mode is read-only
+      ansible.builtin.assert:
+        that:
+          - transfer_check is changed
+          - transfer_check.export_status == 200
+          - transfer_check.import_status is none
+          - transfer_check.dashboard_id is none
+          - transfer_check.source_dashboard.id == transfer_source_dashboard_id
+          - transfer_check.source_dashboard.type == 'dashboard'
+          - transfer_check.source_dashboard.attributes.title == 'Phase 1 Dashboard Transfer'
+          - transfer_check.dependency_count == 1
+          - transfer_check.source_dependencies[0].id == transfer_source_dependency_id
+          - transfer_check.artifact is not defined
+          - transfer_check.artifact_sha256 | length == 64
+
+    - name: Confirm check mode did not import the dashboard
+      zupersero.kibana.saved_objects_export:
+        space: "{{ transfer_target_space }}"
+        types:
+          - dashboard
+      register: target_after_check
+
+    - name: Assert target remains empty after check mode
+      ansible.builtin.assert:
+        that:
+          - target_after_check is not changed
+          - target_after_check.object_count == 0
+          - target_after_check.export_details.exportedCount == 0
+
+    - name: Transfer dashboard artifact with dependencies
+      zupersero.kibana.dashboard_transfer:
+        space: "{{ transfer_source_space }}"
+        target_space: "{{ transfer_target_space }}"
+        dashboard_id: "{{ transfer_source_dashboard_id }}"
+        return_artifact: true
+      register: transfer_result
+
+    - name: Assert dashboard transfer and destination mapping
+      ansible.builtin.assert:
+        that:
+          - transfer_result is changed
+          - transfer_result.export_status == 200
+          - transfer_result.import_status == 200
+          - transfer_result.success_count == 2
+          - transfer_result.errors | length == 0
+          - transfer_result.dashboard.type == 'dashboard'
+          - transfer_result.dashboard.id == transfer_source_dashboard_id
+          - transfer_result.dashboard_id | length > 0
+          - transfer_result.imported_dependencies | length == 1
+          - transfer_result.imported_dependencies[0].type == 'index-pattern'
+          - transfer_result.artifact is string
+          - transfer_result.artifact_sha256 | length == 64
+
+    - name: Export transferred dashboard and dependencies from target
+      zupersero.kibana.saved_objects_export:
+        space: "{{ transfer_target_space }}"
+        objects:
+          - type: dashboard
+            id: "{{ transfer_result.dashboard_id }}"
+        include_references_deep: true
+      register: transferred_export
+
+    - name: Assert the real dashboard artifact is complete in target
+      ansible.builtin.assert:
+        that:
+          - transferred_export is not changed
+          - transferred_export.object_count == 2
+          - transferred_export.objects | selectattr('type', 'equalto', 'dashboard') | list | length == 1
+          - transferred_export.objects | selectattr('type', 'equalto', 'index-pattern') | list | length == 1
+          - transferred_export.export_details.missingRefCount == 0
+
+    - name: Transfer conflicting dashboard without overwrite
+      zupersero.kibana.dashboard_transfer:
+        space: "{{ transfer_source_space }}"
+        target_space: "{{ transfer_target_space }}"
+        dashboard_id: "{{ transfer_source_dashboard_id }}"
+      register: transfer_conflict
+      ignore_errors: true
+
+    - name: Assert conflict is actionable and unchanged
+      ansible.builtin.assert:
+        that:
+          - transfer_conflict is failed
+          - transfer_conflict is not changed
+          - transfer_conflict.import_status == 200
+          - transfer_conflict.success_count == 0
+          - transfer_conflict.errors | length >= 1
+          - transfer_conflict.errors | selectattr('type', 'equalto', 'dashboard') | list | length == 1
+
+    - name: Transfer dashboard with overwrite
+      zupersero.kibana.dashboard_transfer:
+        space: "{{ transfer_source_space }}"
+        target_space: "{{ transfer_target_space }}"
+        dashboard_id: "{{ transfer_source_dashboard_id }}"
+        overwrite: true
+      register: transfer_overwrite
+
+    - name: Assert overwrite remains an explicit changed action
+      ansible.builtin.assert:
+        that:
+          - transfer_overwrite is changed
+          - transfer_overwrite.success_count == 2
+          - transfer_overwrite.dashboard_id == transfer_result.dashboard_id
+
+    - name: Transfer dashboard as a new copy
+      zupersero.kibana.dashboard_transfer:
+        space: "{{ transfer_source_space }}"
+        target_space: "{{ transfer_target_space }}"
+        dashboard_id: "{{ transfer_source_dashboard_id }}"
+        create_new_copies: true
+      register: transfer_copy
+
+    - name: Assert new-copy transfer remaps dashboard and dependency identifiers
+      ansible.builtin.assert:
+        that:
+          - transfer_copy is changed
+          - transfer_copy.success_count == 2
+          - transfer_copy.dashboard.destinationId is defined
+          - transfer_copy.dashboard_id != transfer_result.dashboard_id
+          - transfer_copy.imported_dependencies[0].destinationId is defined
+
+  always:
+    - name: Clean up dashboard transfer source space
+      zupersero.kibana.space:
+        id: "{{ transfer_source_space }}"
+        state: absent
+      failed_when: false
+
+    - name: Clean up dashboard transfer target space
+      zupersero.kibana.space:
+        id: "{{ transfer_target_space }}"
+        state: absent
+      failed_when: false
