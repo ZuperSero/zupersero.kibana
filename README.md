@@ -12,6 +12,16 @@ API modules use `KIBANA_URL` and either `KIBANA_USERNAME` with
 `KIBANA_PASSWORD`, or `KIBANA_API_KEY`. Optional settings include
 `KIBANA_SPACE` and `KIBANA_VALIDATE_CERTS`.
 
+All Kibana and Fleet API modules belong to the `zupersero.kibana.kibana`
+module-defaults group:
+
+```yaml
+module_defaults:
+  group/zupersero.kibana.kibana:
+    url: https://kibana.example.com:5601
+    api_key: "{{ kibana_api_key }}"
+```
+
 Included API modules:
 
 - `zupersero.kibana.alerting_rule`
