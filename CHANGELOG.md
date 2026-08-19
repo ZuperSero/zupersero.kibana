@@ -20,3 +20,9 @@ All notable changes to `zupersero.kibana` are documented in this file.
 - Add typed `maintenance_window` management with exact-name lookup, recurring
   schedules, alert KQL scope, archive and delete lifecycles, server-derived
   status returns, and check/diff support.
+- Add typed `agent_policy` and `package_policy` Fleet resources with generated
+  ID lookup, installed-package and agent-policy validation, preservation-aware
+  updates, secret redaction, check/diff support, and lifecycle integration
+  coverage.
+- Add the explicit `fleet_package` module for installed-package discovery,
+  installation, upgrades, and removal with check-mode previews.

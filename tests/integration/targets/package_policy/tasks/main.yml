@@ -1,0 +1,201 @@
+---
+- name: Test Fleet package-policy lifecycle
+  vars:
+    package_policy_name: phase1-system-package-policy
+    agent_policy_name: phase1-package-policy-agent-policy
+    package_name: system
+    package_policy_description: Phase 1 package-policy integration
+  module_defaults:
+    zupersero.kibana.package_policy:
+      url: http://127.0.0.1:5601
+      username: elastic
+      password: changeme
+    zupersero.kibana.agent_policy:
+      url: http://127.0.0.1:5601
+      username: elastic
+      password: changeme
+  block:
+    - name: Discover an installed integration package
+      ansible.builtin.uri:
+        url: http://127.0.0.1:5601/api/fleet/epm/packages/installed
+        user: elastic
+        password: changeme
+        force_basic_auth: true
+        headers:
+          kbn-xsrf: true
+        return_content: true
+        status_code: 200
+      register: installed_packages
+      no_log: true
+
+    - name: Fail clearly when the system package is unavailable
+      ansible.builtin.fail:
+        msg: >-
+          Fleet package-policy integration requires the installed `system` package;
+          install it in Kibana before running this target.
+      when: >-
+        (installed_packages.json['items'] | default(installed_packages.json['packages'] | default([]))
+        | selectattr('name', 'defined') | selectattr('name', 'equalto', package_name) | list | length) == 0
+
+    - name: Select the installed system package version
+      ansible.builtin.set_fact:
+        package_version: >-
+          {{ (installed_packages.json['items'] | default(installed_packages.json['packages'] | default([]))
+              | selectattr('name', 'equalto', package_name) | list | first).version }}
+
+    - name: Create an agent policy for the package policy
+      zupersero.kibana.agent_policy:
+        name: "{{ agent_policy_name }}"
+        namespace: default
+        description: Package-policy integration agent policy
+      register: agent_policy_result
+
+    - name: Preview package-policy creation
+      zupersero.kibana.package_policy:
+        name: "{{ package_policy_name }}"
+        namespace: default
+        package: "{{ package_name }}"
+        package_version: "{{ package_version }}"
+        policy_id: "{{ agent_policy_result.agent_policy.id }}"
+        description: "{{ package_policy_description }}"
+        inputs: {}
+        vars: {}
+      check_mode: true
+      diff: true
+      register: create_check
+
+    - name: Assert package-policy creation check mode
+      ansible.builtin.assert:
+        that:
+          - create_check is changed
+          - create_check.package_policy.name == package_policy_name
+          - create_check.package_policy.package.name == package_name
+          - create_check.package_policy.package.version == package_version
+          - create_check.diff.before == {}
+
+    - name: Create package policy
+      zupersero.kibana.package_policy:
+        name: "{{ package_policy_name }}"
+        namespace: default
+        package: "{{ package_name }}"
+        package_version: "{{ package_version }}"
+        policy_id: "{{ agent_policy_result.agent_policy.id }}"
+        description: "{{ package_policy_description }}"
+        inputs: {}
+        vars: {}
+      register: create_result
+
+    - name: Assert package-policy creation
+      ansible.builtin.assert:
+        that:
+          - create_result is changed
+          - create_result.status in [200, 201]
+          - create_result.package_policy.id is defined
+
+    - name: Reconcile package policy by generated ID
+      zupersero.kibana.package_policy:
+        id: "{{ create_result.package_policy.id }}"
+        name: "{{ package_policy_name }}"
+        package: "{{ package_name }}"
+        package_version: "{{ package_version }}"
+        policy_id: "{{ agent_policy_result.agent_policy.id }}"
+        description: "{{ package_policy_description }}"
+      register: create_again
+
+    - name: Assert package-policy creation is idempotent
+      ansible.builtin.assert:
+        that:
+          - create_again is not changed
+          - create_again.package_policy.id == create_result.package_policy.id
+
+    - name: Preview a description update
+      zupersero.kibana.package_policy:
+        id: "{{ create_result.package_policy.id }}"
+        description: Updated package-policy description
+      check_mode: true
+      diff: true
+      register: update_check
+
+    - name: Assert package-policy update check mode
+      ansible.builtin.assert:
+        that:
+          - update_check is changed
+          - update_check.package_policy.description == 'Updated package-policy description'
+          - update_check.package_policy.package.name == package_name
+
+    - name: Update package policy
+      zupersero.kibana.package_policy:
+        id: "{{ create_result.package_policy.id }}"
+        description: Updated package-policy description
+      register: update_result
+
+    - name: Assert package-policy update preserved package and inputs
+      ansible.builtin.assert:
+        that:
+          - update_result is changed
+          - update_result.package_policy.description == 'Updated package-policy description'
+          - update_result.package_policy.package.name == package_name
+
+    - name: Reconcile the package policy again
+      zupersero.kibana.package_policy:
+        id: "{{ create_result.package_policy.id }}"
+        description: Updated package-policy description
+      register: update_again
+
+    - name: Assert package-policy update is idempotent
+      ansible.builtin.assert:
+        that:
+          - update_again is not changed
+
+    - name: Preview package-policy deletion
+      zupersero.kibana.package_policy:
+        id: "{{ create_result.package_policy.id }}"
+        state: absent
+      check_mode: true
+      diff: true
+      register: delete_check
+
+    - name: Assert package-policy deletion check mode
+      ansible.builtin.assert:
+        that:
+          - delete_check is changed
+          - delete_check.diff.after == {}
+
+    - name: Delete package policy
+      zupersero.kibana.package_policy:
+        id: "{{ create_result.package_policy.id }}"
+        state: absent
+      register: delete_result
+
+    - name: Assert package-policy deletion
+      ansible.builtin.assert:
+        that:
+          - delete_result is changed
+          - delete_result.status in [200, 204]
+          - delete_result.package_policy is none
+
+    - name: Delete package policy again
+      zupersero.kibana.package_policy:
+        id: "{{ create_result.package_policy.id }}"
+        state: absent
+      register: delete_again
+
+    - name: Assert package-policy deletion is idempotent
+      ansible.builtin.assert:
+        that:
+          - delete_again is not changed
+
+  always:
+    - name: Clean up package policy by name
+      zupersero.kibana.package_policy:
+        name: "{{ package_policy_name }}"
+        policy_id: "{{ agent_policy_result.agent_policy.id | default('missing') }}"
+        state: absent
+      failed_when: false
+
+    - name: Clean up agent policy
+      zupersero.kibana.agent_policy:
+        id: "{{ agent_policy_result.agent_policy.id | default('missing') }}"
+        state: absent
+        force: true
+      failed_when: false

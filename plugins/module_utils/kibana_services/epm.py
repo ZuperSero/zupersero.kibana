@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 from typing import TYPE_CHECKING
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 if TYPE_CHECKING:
     from ..kibana import KibanaClient
@@ -60,9 +60,9 @@ class EPMService:
         if withMetadata:
             query_params["withMetadata"] = str(withMetadata).lower()
 
-        path = f"api/fleet/epm/packages/{package_name}"
+        path = f"api/fleet/epm/packages/{quote(package_name, safe='')}"
         if package_version:
-            path += f"/{package_version}"
+            path += f"/{quote(package_version, safe='')}"
         if query_params:
             path += "?" + urlencode(query_params)
         return self.client.get(path)
@@ -152,9 +152,9 @@ class EPMService:
             "ignore_constraints": str(ignore_constraints).lower(),
         }
 
-        path = f"api/fleet/epm/packages/{package_name}"
+        path = f"api/fleet/epm/packages/{quote(package_name, safe='')}"
         if package_version:
-            path += f"/{package_version}"
+            path += f"/{quote(package_version, safe='')}"
         if query_params:
             path += "?" + urlencode(query_params)
 
@@ -180,9 +180,9 @@ class EPMService:
         """
         data = {"keepPoliciesUpToDate": keep_policies_up_to_date}
 
-        path = f"api/fleet/epm/packages/{package_name}"
+        path = f"api/fleet/epm/packages/{quote(package_name, safe='')}"
         if package_version:
-            path += f"/{package_version}"
+            path += f"/{quote(package_version, safe='')}"
 
         return self.client.put(path, data=data)
 
@@ -204,8 +204,8 @@ class EPMService:
                 - delete_response_data: Deletion response object or error dict
         """
         query_params = {"force": str(force).lower()}
-        path = f"api/fleet/epm/packages/{package_name}"
+        path = f"api/fleet/epm/packages/{quote(package_name, safe='')}"
         if package_version:
-            path += f"/{package_version}"
+            path += f"/{quote(package_version, safe='')}"
         path += "?" + urlencode(query_params)
         return self.client.delete(path)

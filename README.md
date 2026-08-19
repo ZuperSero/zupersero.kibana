@@ -18,7 +18,10 @@ Included API modules:
 - `zupersero.kibana.connector`
 - `zupersero.kibana.data_view`
 - `zupersero.kibana.dashboard_transfer`
+- `zupersero.kibana.fleet_package`
 - `zupersero.kibana.maintenance_window`
+- `zupersero.kibana.agent_policy`
+- `zupersero.kibana.package_policy`
 - `zupersero.kibana.saved_object`
 - `zupersero.kibana.saved_objects_export`
 - `zupersero.kibana.saved_objects_import`
@@ -42,6 +45,20 @@ just integration
 ```
 
 ## Example
+
+Fleet integration policies require the referenced package to be installed in
+Kibana and attach to an existing Fleet agent policy:
+
+```yaml
+- name: Configure the system integration
+  zupersero.kibana.package_policy:
+    name: Linux system metrics
+    package: system
+    package_version: 1.49.0
+    policy_id: fleet-agent-policy
+    inputs: {}
+    vars: {}
+```
 
 ```yaml
 - name: Install Kibana

@@ -414,6 +414,7 @@ class KibanaClient:
             DataViewService,
             EPMService,
             MaintenanceWindowService,
+            PackagePolicyService,
             RoleService,
             SavedObjectService,
             SpaceService,
@@ -468,6 +469,7 @@ class KibanaClient:
         self.roles = RoleService(self)
         self.saved_objects = SavedObjectService(self)
         self.maintenance_windows = MaintenanceWindowService(self)
+        self.package_policies = PackagePolicyService(self)
 
     @property
     def _secret_values(self) -> list[str | None]:

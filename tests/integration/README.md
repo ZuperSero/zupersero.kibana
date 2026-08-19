@@ -20,6 +20,9 @@ ansible-test integration connector
 ansible-test integration data_view
 ansible-test integration dashboard_transfer
 ansible-test integration maintenance_window
+ansible-test integration agent_policy
+ansible-test integration fleet_package
+ansible-test integration package_policy
 ansible-test integration saved_object
 ansible-test integration saved_objects_export
 ansible-test integration saved_objects_import
@@ -29,3 +32,9 @@ ansible-test integration space
 Targets live under `tests/integration/targets/<module_name>/`, with assertions
 in `tasks/main.yml` and module routing in `aliases`. The suite covers create,
 update, delete, idempotence, and check-mode behavior where supported.
+
+The `package_policy` target additionally requires the Fleet `system` package to
+be installed. It fails with an explicit prerequisite message when the package
+registry is unavailable or the package has not been installed; it does not
+silently skip Fleet coverage. Fleet privileges sufficient to create and delete
+agent and package policies are required.

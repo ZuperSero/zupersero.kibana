@@ -1,0 +1,150 @@
+---
+- name: Exercise Fleet agent-policy lifecycle
+  vars:
+    fleet_policy_name: Phase 1 Agent Policy Integration
+    fleet_policy_namespace: phase1
+  module_defaults:
+    zupersero.kibana.agent_policy:
+      url: http://127.0.0.1:5601
+      username: elastic
+      password: changeme
+  block:
+    - name: Preview agent-policy creation
+      zupersero.kibana.agent_policy:
+        name: "{{ fleet_policy_name }}"
+        namespace: "{{ fleet_policy_namespace }}"
+        description: Phase 1 integration policy
+        monitoring_enabled: [logs, metrics]
+      check_mode: true
+      diff: true
+      register: create_check
+
+    - name: Assert agent-policy creation preview
+      ansible.builtin.assert:
+        that:
+          - create_check is changed
+          - create_check.agent_policy.name == fleet_policy_name
+          - create_check.agent_policy.namespace == fleet_policy_namespace
+          - create_check.diff.before == {}
+
+    - name: Create agent policy
+      zupersero.kibana.agent_policy:
+        name: "{{ fleet_policy_name }}"
+        namespace: "{{ fleet_policy_namespace }}"
+        description: Phase 1 integration policy
+        monitoring_enabled: [logs, metrics]
+      register: create_result
+
+    - name: Save generated agent-policy identifier
+      ansible.builtin.set_fact:
+        fleet_policy_id: "{{ create_result.agent_policy.id }}"
+
+    - name: Assert agent-policy creation
+      ansible.builtin.assert:
+        that:
+          - create_result is changed
+          - create_result.status in [200, 201]
+          - fleet_policy_id | length > 0
+
+    - name: Reconcile agent policy by exact name
+      zupersero.kibana.agent_policy:
+        name: "{{ fleet_policy_name }}"
+        namespace: "{{ fleet_policy_namespace }}"
+        description: Phase 1 integration policy
+        monitoring_enabled: [logs, metrics]
+      register: create_again
+
+    - name: Assert agent-policy creation is idempotent
+      ansible.builtin.assert:
+        that:
+          - create_again is not changed
+          - create_again.agent_policy.id == fleet_policy_id
+
+    - name: Preview an agent-policy update while preserving omitted fields
+      zupersero.kibana.agent_policy:
+        id: "{{ fleet_policy_id }}"
+        name: "{{ fleet_policy_name }}"
+        description: Updated Phase 1 integration policy
+      check_mode: true
+      diff: true
+      register: update_check
+
+    - name: Assert agent-policy update preview
+      ansible.builtin.assert:
+        that:
+          - update_check is changed
+          - update_check.agent_policy.description == 'Updated Phase 1 integration policy'
+          - update_check.agent_policy.namespace == fleet_policy_namespace
+          - update_check.agent_policy.monitoring_enabled == ['logs', 'metrics']
+
+    - name: Update agent policy
+      zupersero.kibana.agent_policy:
+        id: "{{ fleet_policy_id }}"
+        name: "{{ fleet_policy_name }}"
+        description: Updated Phase 1 integration policy
+      register: update_result
+
+    - name: Assert agent-policy update
+      ansible.builtin.assert:
+        that:
+          - update_result is changed
+          - update_result.agent_policy.description == 'Updated Phase 1 integration policy'
+
+    - name: Reconcile updated agent policy
+      zupersero.kibana.agent_policy:
+        id: "{{ fleet_policy_id }}"
+        name: "{{ fleet_policy_name }}"
+        description: Updated Phase 1 integration policy
+      register: update_again
+
+    - name: Assert agent-policy update is idempotent
+      ansible.builtin.assert:
+        that:
+          - update_again is not changed
+
+    - name: Preview agent-policy deletion
+      zupersero.kibana.agent_policy:
+        id: "{{ fleet_policy_id }}"
+        state: absent
+        force: true
+      check_mode: true
+      diff: true
+      register: delete_check
+
+    - name: Assert agent-policy deletion preview
+      ansible.builtin.assert:
+        that:
+          - delete_check is changed
+          - delete_check.diff.after == {}
+
+    - name: Delete agent policy
+      zupersero.kibana.agent_policy:
+        id: "{{ fleet_policy_id }}"
+        state: absent
+        force: true
+      register: delete_result
+
+    - name: Assert agent-policy deletion
+      ansible.builtin.assert:
+        that:
+          - delete_result is changed
+          - delete_result.agent_policy is none
+
+    - name: Delete agent policy again
+      zupersero.kibana.agent_policy:
+        id: "{{ fleet_policy_id }}"
+        state: absent
+        force: true
+      register: delete_again
+
+    - name: Assert repeated agent-policy deletion is idempotent
+      ansible.builtin.assert:
+        that:
+          - delete_again is not changed
+  always:
+    - name: Clean up the Fleet agent policy
+      zupersero.kibana.agent_policy:
+        id: "{{ fleet_policy_id | default('phase1-agent-policy-integration') }}"
+        state: absent
+        force: true
+      when: fleet_policy_id is defined

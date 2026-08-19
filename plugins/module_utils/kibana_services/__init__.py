@@ -10,6 +10,7 @@ from .alerting import AlertingRuleService, MaintenanceWindowService
 from .connector import ConnectorService
 from .dataview import DataViewService
 from .epm import EPMService
+from .package_policy import PackagePolicyService
 from .role import RoleService
 from .saved_object import SavedObjectService
 from .space import SpaceService
@@ -21,6 +22,7 @@ __all__ = [
     "ConnectorService",
     "DataViewService",
     "EPMService",
+    "PackagePolicyService",
     "MaintenanceWindowService",
     "RoleService",
     "SavedObjectService",

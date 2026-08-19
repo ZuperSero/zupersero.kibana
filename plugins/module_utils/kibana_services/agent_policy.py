@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 from typing import TYPE_CHECKING
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 if TYPE_CHECKING:
     from ..kibana import KibanaClient
@@ -42,7 +42,7 @@ class AgentPolicyService:
                 - status_code: HTTP status code (200 if found, 404 if not found)
                 - policy_data: Agent policy object if found, error dict if not found
         """
-        path = f"api/fleet/agent_policies/{policy_id}"
+        path = f"api/fleet/agent_policies/{quote(policy_id, safe='')}"
         return self.client.get(path)
 
     def get_full(self, policy_id: str) -> tuple[int, dict | None]:
@@ -56,7 +56,7 @@ class AgentPolicyService:
                 - status_code: HTTP status code (200 if found, 404 if not found)
                 - policy_data: Agent policy object with full details if found, error dict if not found
         """
-        path = f"api/fleet/agent_policies/{policy_id}/full"
+        path = f"api/fleet/agent_policies/{quote(policy_id, safe='')}/full"
         return self.client.get(path)
 
     def get_outputs(self, policy_id: str) -> tuple[int, dict | None]:
@@ -70,7 +70,7 @@ class AgentPolicyService:
                 - status_code: HTTP status code (200 if found, 404 if not found)
                 - outputs_data: Outputs associated with the agent policy if found, error dict if not found
         """
-        path = f"api/fleet/agent_policies/{policy_id}/outputs"
+        path = f"api/fleet/agent_policies/{quote(policy_id, safe='')}/outputs"
         return self.client.get(path)
 
     def get_status(
@@ -125,9 +125,9 @@ class AgentPolicyService:
             "perPage": per_page,
             "sortField": sort_field,
             "sortOrder": sort_order,
-            "show_upgradeable": str(show_upgradeable).lower(),
+            "showUpgradeable": str(show_upgradeable).lower(),
             "kuery": kuery,
-            "with_agent_count": str(with_agent_count).lower(),
+            "withAgentCount": str(with_agent_count).lower(),
             "full": str(full).lower(),
             "format": format,
         }
@@ -170,7 +170,7 @@ class AgentPolicyService:
                 - status_code: HTTP status code (200 if successful, 404 if not found)
                 - updated_policy_data: Updated agent policy object or error dict
         """
-        path = f"api/fleet/agent_policies/{policy_id}?format={format}"
+        path = f"api/fleet/agent_policies/{quote(policy_id, safe='')}?format={quote(format, safe='')}"
         return self.client.put(path, data=policy_data)
 
     def copy(
@@ -193,7 +193,7 @@ class AgentPolicyService:
                 - status_code: HTTP status code (200/201 if successful, 404 if not found)
                 - copied_policy_data: Copied agent policy object or error dict
         """
-        path = f"api/fleet/agent_policies/{policy_id}/copy?format={format}"
+        path = f"api/fleet/agent_policies/{quote(policy_id, safe='')}/copy?format={quote(format, safe='')}"
         data = {"name": new_name, "description": description}
         return self.client.post(path, data=data)
 
