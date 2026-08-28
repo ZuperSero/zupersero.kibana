@@ -72,6 +72,20 @@ The recipe uses `ELASTICSEARCH_URL`, `ELASTICSEARCH_USERNAME`, and
 `elastic`, and `changeme`. It fails unless Elasticsearch confirms that the
 trial was started; it does not expose credentials in its output.
 
+## Releases
+
+Releases are published to Ansible Galaxy automatically by GitHub Actions.
+To publish a version:
+
+1. Update the `version` in `galaxy.yml` and commit and push the change.
+2. Create a published GitHub Release with a tag matching that version (for
+   example, `1.0.0`).
+3. Confirm that the `Publish to Ansible Galaxy` workflow completes and that the
+   collection is available on Galaxy.
+
+The repository must have a `GALAXY_API_KEY` secret with permission to publish
+the `zupersero` namespace. Prerelease GitHub Releases are not published.
+
 ## Example
 
 Custom Kibana roles preserve omitted privilege sections during updates. Set

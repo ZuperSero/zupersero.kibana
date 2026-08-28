@@ -8,6 +8,8 @@ All notable changes to `zupersero.kibana` are documented in this file.
 
 ## Unreleased
 
+- Add automatic Ansible Galaxy publishing for matching published GitHub
+  releases.
 - Add the `just activate-trial` development recipe for explicitly activating
   an Elasticsearch trial license before testing license-gated Fleet APIs.
 - Add shared Phase 0 API client foundations and generic object, request, and
