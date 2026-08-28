@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 from typing import TYPE_CHECKING
+from urllib.parse import quote
 
 if TYPE_CHECKING:
     from ..kibana import KibanaClient
@@ -53,7 +54,7 @@ class RoleService:
                 - status_code: HTTP status code (200 if found, 404 if not found)
                 - role_data: Role object if found, error dict if not found
         """
-        path = f"api/security/role/{role_name}"
+        path = f"api/security/role/{quote(role_name, safe='')}"
         return self.client.get(path)
 
     def create(self, role_name: str, role_data: dict) -> tuple[int, dict | None]:
@@ -69,5 +70,14 @@ class RoleService:
                 - status_code: HTTP status code (200/201 if successful, 409 if already exists)
                 - created_role_data: Created role object or error dict
         """
-        path = f"api/security/role/{role_name}"
+        path = f"api/security/role/{quote(role_name, safe='')}"
         return self.client.put(path, data=role_data)
+
+    def update(self, role_name: str, role_data: dict) -> tuple[int, dict | None]:
+        """Update a role using Kibana's idempotent PUT endpoint."""
+        return self.create(role_name, role_data)
+
+    def delete(self, role_name: str) -> tuple[int, dict | None]:
+        """Delete a role by name."""
+        path = f"api/security/role/{quote(role_name, safe='')}"
+        return self.client.delete(path)

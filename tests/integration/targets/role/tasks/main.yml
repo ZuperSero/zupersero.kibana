@@ -1,0 +1,170 @@
+# Copyright (c) 2026, zupersero
+# GNU General Public License v3.0+
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+---
+- name: Test Kibana role lifecycle
+  module_defaults:
+    zupersero.kibana.role:
+      url: http://127.0.0.1:5601
+      username: elastic
+      password: changeme
+  block:
+    - name: Preview role creation
+      zupersero.kibana.role:
+        name: phase1-role-integration
+        description: Phase 1 integration role
+        elasticsearch:
+          cluster: [monitor]
+          indices:
+            - names: ["logs-*"]
+              privileges: [read]
+              allow_restricted_indices: false
+          run_as: []
+        kibana:
+          - base: [read]
+            spaces: [default]
+      check_mode: true
+      diff: true
+      register: create_check
+
+    - name: Assert role creation preview
+      ansible.builtin.assert:
+        that:
+          - create_check is changed
+          - create_check.role.name == 'phase1-role-integration'
+          - create_check.diff.before == {}
+
+    - name: Create role
+      zupersero.kibana.role:
+        name: phase1-role-integration
+        description: Phase 1 integration role
+        elasticsearch:
+          cluster: [monitor]
+          indices:
+            - names: ["logs-*"]
+              privileges: [read]
+              allow_restricted_indices: false
+          run_as: []
+        kibana:
+          - base: [read]
+            spaces: [default]
+      register: create_result
+
+    - name: Assert role creation
+      ansible.builtin.assert:
+        that:
+          - create_result is changed
+          - create_result.role.name == 'phase1-role-integration'
+          - create_result.role.elasticsearch.cluster == ['monitor']
+
+    - name: Reconcile role without changes
+      zupersero.kibana.role:
+        name: phase1-role-integration
+        description: Phase 1 integration role
+        elasticsearch:
+          cluster: [monitor]
+          indices:
+            - names: ["logs-*"]
+              privileges: [read]
+              allow_restricted_indices: false
+          run_as: []
+        kibana:
+          - base: [read]
+            spaces: [default]
+      register: create_again
+      diff: true
+
+    - name: Assert role creation is idempotent
+      ansible.builtin.assert:
+        that:
+          - create_again is not changed
+
+    - name: Preview partial role update
+      zupersero.kibana.role:
+        name: phase1-role-integration
+        description: Updated Phase 1 integration role
+      check_mode: true
+      diff: true
+      register: update_check
+
+    - name: Assert partial update preview preserves privileges
+      ansible.builtin.assert:
+        that:
+          - update_check is changed
+          - update_check.role.description == 'Updated Phase 1 integration role'
+          - update_check.role.elasticsearch.cluster == ['monitor']
+
+    - name: Apply partial role update
+      zupersero.kibana.role:
+        name: phase1-role-integration
+        description: Updated Phase 1 integration role
+      register: update_result
+
+    - name: Assert partial role update
+      ansible.builtin.assert:
+        that:
+          - update_result is changed
+          - update_result.role.description == 'Updated Phase 1 integration role'
+          - update_result.role.elasticsearch.cluster == ['monitor']
+
+    - name: Replace role privileges in check mode
+      zupersero.kibana.role:
+        name: phase1-role-integration
+        description: Replaced Phase 1 integration role
+        replace: true
+      check_mode: true
+      register: replace_check
+
+    - name: Assert replacement preview clears omitted sections
+      ansible.builtin.assert:
+        that:
+          - replace_check is changed
+          - replace_check.role.elasticsearch == {}
+          - replace_check.role.kibana == []
+          - replace_check.role.metadata == {}
+
+    - name: Apply role replacement
+      zupersero.kibana.role:
+        name: phase1-role-integration
+        description: Replaced Phase 1 integration role
+        replace: true
+      register: replace_result
+
+    - name: Assert role replacement
+      ansible.builtin.assert:
+        that:
+          - replace_result is changed
+          - replace_result.role.elasticsearch.cluster == []
+          - replace_result.role.kibana == []
+
+    - name: Reconcile replaced role
+      zupersero.kibana.role:
+        name: phase1-role-integration
+        description: Replaced Phase 1 integration role
+        replace: true
+      register: replace_again
+      diff: true
+
+    - name: Assert replacement is idempotent
+      ansible.builtin.assert:
+        that:
+          - replace_again is not changed
+
+    - name: Reject deletion of a reserved role
+      zupersero.kibana.role:
+        name: superuser
+        state: absent
+      register: reserved_delete
+      ignore_errors: true
+
+    - name: Assert reserved role was protected
+      ansible.builtin.assert:
+        that:
+          - reserved_delete is failed
+          - "'reserved' in reserved_delete.msg"
+  always:
+    - name: Remove integration role
+      zupersero.kibana.role:
+        name: phase1-role-integration
+        state: absent

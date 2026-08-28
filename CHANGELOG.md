@@ -1,5 +1,9 @@
 # Changelog
 
+- Add typed `role` management for Kibana security roles with partial and
+  authoritative replacement, check mode, diff mode, and reserved-role
+  protection.
+
 All notable changes to `zupersero.kibana` are documented in this file.
 
 ## Unreleased

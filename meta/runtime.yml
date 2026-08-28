@@ -14,6 +14,7 @@ action_groups:
     - zupersero.kibana.kibana_request
     - zupersero.kibana.maintenance_window
     - zupersero.kibana.package_policy
+    - zupersero.kibana.role
     - zupersero.kibana.saved_object
     - zupersero.kibana.saved_objects_export
     - zupersero.kibana.saved_objects_import

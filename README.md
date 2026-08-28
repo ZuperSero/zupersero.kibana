@@ -32,6 +32,7 @@ Included API modules:
 - `zupersero.kibana.maintenance_window`
 - `zupersero.kibana.agent_policy`
 - `zupersero.kibana.package_policy`
+- `zupersero.kibana.role`
 - `zupersero.kibana.saved_object`
 - `zupersero.kibana.saved_objects_export`
 - `zupersero.kibana.saved_objects_import`
@@ -55,6 +56,26 @@ just integration
 ```
 
 ## Example
+
+Custom Kibana roles preserve omitted privilege sections during updates. Set
+`replace: true` when the supplied role definition should clear omitted sections:
+
+```yaml
+- name: Manage a Kibana read-only role
+  zupersero.kibana.role:
+    name: observability-reader
+    description: Read-only observability access
+    elasticsearch:
+      cluster: [monitor]
+      indices:
+        - names: ["logs-*"]
+          privileges: [read, view_index_metadata]
+    kibana:
+      - base: [read]
+        feature:
+          dashboard: [read]
+        spaces: [default]
+```
 
 Fleet integration policies require the referenced package to be installed in
 Kibana and attach to an existing Fleet agent policy:

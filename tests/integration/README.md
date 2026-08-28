@@ -23,6 +23,7 @@ ansible-test integration maintenance_window
 ansible-test integration agent_policy
 ansible-test integration fleet_package
 ansible-test integration package_policy
+ansible-test integration role
 ansible-test integration saved_object
 ansible-test integration saved_objects_export
 ansible-test integration saved_objects_import
