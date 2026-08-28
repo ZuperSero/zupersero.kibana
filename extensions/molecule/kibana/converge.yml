@@ -8,6 +8,7 @@
       ansible.builtin.include_role:
         name: zupersero.kibana.kibana
       vars:
+        kibana_version: "{{ lookup('env', 'KIBANA_VERSION') | default('9.2.0', true) }}"
         kibana_package_install_timeout: 900
         kibana_systemd_service_overrides: |
           [Service]

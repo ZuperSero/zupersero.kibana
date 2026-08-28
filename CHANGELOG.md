@@ -8,6 +8,8 @@ All notable changes to `zupersero.kibana` are documented in this file.
 
 ## Unreleased
 
+- Add the `just activate-trial` development recipe for explicitly activating
+  an Elasticsearch trial license before testing license-gated Fleet APIs.
 - Add shared Phase 0 API client foundations and generic object, request, and
   information modules.
 - Add the typed `saved_object` module with space-aware, idempotent CRUD,
@@ -30,3 +32,5 @@ All notable changes to `zupersero.kibana` are documented in this file.
   coverage.
 - Add the explicit `fleet_package` module for installed-package discovery,
   installation, upgrades, and removal with check-mode previews.
+- Add typed Fleet administration modules for outputs, proxies, Fleet Server
+  hosts, Agent download sources, and enrollment-token lifecycle management.

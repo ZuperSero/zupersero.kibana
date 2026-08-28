@@ -9,6 +9,11 @@ action_groups:
     - zupersero.kibana.dashboard_transfer
     - zupersero.kibana.data_view
     - zupersero.kibana.fleet_package
+    - zupersero.kibana.fleet_output
+    - zupersero.kibana.fleet_proxy
+    - zupersero.kibana.fleet_server_host
+    - zupersero.kibana.agent_download_source
+    - zupersero.kibana.enrollment_token
     - zupersero.kibana.kibana_info
     - zupersero.kibana.kibana_object
     - zupersero.kibana.kibana_request

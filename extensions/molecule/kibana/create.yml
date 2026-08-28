@@ -3,8 +3,9 @@
   hosts: localhost
   gather_facts: false
   vars:
-    molecule_network: molecule-kibana
-    elasticsearch_container: molecule-kibana-elasticsearch
+    molecule_stack_suffix: "{{ lookup('env', 'ELASTIC_VERSION') | default('9.2.0', true) | regex_replace('[^A-Za-z0-9_.-]', '-') }}"
+    molecule_network: "molecule-kibana-{{ molecule_stack_suffix }}"
+    elasticsearch_container: "molecule-kibana-elasticsearch-{{ molecule_stack_suffix }}"
     molecule_inventory:
       all:
         children:
@@ -20,7 +21,7 @@
       community.docker.docker_container:
         name: "{{ elasticsearch_container }}"
         hostname: elasticsearch
-        image: docker.elastic.co/elasticsearch/elasticsearch:9.2.1
+        image: "docker.elastic.co/elasticsearch/elasticsearch:{{ lookup('env', 'ELASTIC_VERSION') | default('9.2.0', true) }}"
         state: started
         recreate: true
         networks:

@@ -22,6 +22,11 @@ ansible-test integration dashboard_transfer
 ansible-test integration maintenance_window
 ansible-test integration agent_policy
 ansible-test integration fleet_package
+ansible-test integration fleet_output
+ansible-test integration fleet_proxy
+ansible-test integration fleet_server_host
+ansible-test integration agent_download_source
+ansible-test integration enrollment_token
 ansible-test integration package_policy
 ansible-test integration role
 ansible-test integration saved_object
@@ -39,3 +44,7 @@ be installed. It fails with an explicit prerequisite message when the package
 registry is unavailable or the package has not been installed; it does not
 silently skip Fleet coverage. Fleet privileges sufficient to create and delete
 agent and package policies are required.
+
+The Fleet administration targets require Fleet settings privileges and a trial
+or higher Kibana license. The enrollment-token target also requires an existing
+agent policy and always redacts the generated enrollment API key.

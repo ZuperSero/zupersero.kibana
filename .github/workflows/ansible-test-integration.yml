@@ -6,12 +6,14 @@ on:
       - "tests/integration/**"
       - "plugins/**"
       - ".github/workflows/ansible-test-integration.yml"
+      - "justfile"
   push:
     branches: [dev]
     paths:
       - "tests/integration/**"
       - "plugins/**"
       - ".github/workflows/ansible-test-integration.yml"
+      - "justfile"
 
 jobs:
   ansible-test:
@@ -21,10 +23,12 @@ jobs:
 
     strategy:
       fail-fast: false
+      max-parallel: 1
       matrix:
-        elastic: ["9.2.0"]
+        # Keep these lists editable: CI intentionally covers every Stack/Python pair.
+        elastic: ["9.2.0", "9.4.0", "9.5.0"]
         ansible_core: ["v2.19.5"]
-        python_version: ["3.11"]
+        python_version: ["3.11", "3.12", "3.13"]
     steps:
       - name: Get elasticsearch
         run: curl -fsSL https://elastic.co/start-local | ES_LOCAL_PASSWORD="changeme" sh -s -- -v ${{ matrix.elastic }}
@@ -56,6 +60,14 @@ jobs:
           done
           echo "Kibana did not become ready after 15 attempts."
           exit 1
+
+      - name: Activate the trial license
+        run: |
+          set -euo pipefail
+          response=$(curl --silent --show-error --user "elastic:changeme" \
+            --header 'Content-Type: application/json' --request POST \
+            "http://localhost:9200/_license/start_trial?acknowledge=true")
+          echo "$response" | grep -q '"trial_was_started"[[:space:]]*:[[:space:]]*true'
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -96,3 +108,8 @@ jobs:
           format: markdown
           output: both
           badge: true
+      - name: Clean up Stack containers
+        if: always()
+        run: |
+          ids=$(docker ps -aq --filter publish=9200 --filter publish=5601 || true)
+          if [ -n "$ids" ]; then docker rm -f $ids; fi

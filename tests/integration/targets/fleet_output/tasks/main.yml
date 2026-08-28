@@ -1,0 +1,39 @@
+---
+- name: Exercise Fleet output lifecycle
+  vars: {item_name: phase1-fleet-output}
+  module_defaults:
+    zupersero.kibana.fleet_output:
+      url: http://127.0.0.1:5601
+      username: elastic
+      password: changeme
+  block:
+    - zupersero.kibana.fleet_output:
+        name: "{{ item_name }}"
+        type: elasticsearch
+        hosts: [http://elasticsearch.example.test:9200]
+      check_mode: true
+      register: preview
+    - ansible.builtin.assert: {that: [preview is changed]}
+    - zupersero.kibana.fleet_output:
+        name: "{{ item_name }}"
+        type: elasticsearch
+        hosts: [http://elasticsearch.example.test:9200]
+      register: created
+    - ansible.builtin.assert: {that: [created is changed, created.fleet_output.id is defined]}
+    - zupersero.kibana.fleet_output:
+        id: "{{ created.fleet_output.id }}"
+        name: "{{ item_name }}"
+        type: elasticsearch
+        hosts: [http://elasticsearch.example.test:9200]
+      register: again
+    - ansible.builtin.assert: {that: [again is not changed]}
+    - zupersero.kibana.fleet_output:
+        id: "{{ created.fleet_output.id }}"
+        state: absent
+      register: deleted
+    - ansible.builtin.assert: {that: [deleted is changed]}
+  always:
+    - zupersero.kibana.fleet_output:
+        id: "{{ created.fleet_output.id | default('') }}"
+        state: absent
+      when: created is defined and created.fleet_output.id is defined

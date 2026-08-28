@@ -10,6 +10,7 @@ on:
       - "roles/**"
       - "galaxy.yml"
       - ".github/workflows/molecule.yml"
+      - "justfile"
   push:
     branches:
       - main
@@ -19,32 +20,30 @@ on:
       - "roles/**"
       - "galaxy.yml"
       - ".github/workflows/molecule.yml"
+      - "justfile"
 
 jobs:
-  discover-scenarios:
-    runs-on: ubuntu-latest
-    outputs:
-      scenarios: ${{ steps.scenarios.outputs.scenarios }}
-    steps:
-      - uses: actions/checkout@v4
-      - name: Discover Molecule scenarios
-        id: scenarios
-        run: |
-          scenarios=$(find extensions/molecule -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | jq -R -s -c 'split("\n")[:-1]')
-          echo "scenarios=$scenarios" >> "$GITHUB_OUTPUT"
-
   molecule:
-    needs: discover-scenarios
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      max-parallel: 1
       matrix:
-        scenario: ${{ fromJson(needs.discover-scenarios.outputs.scenarios) }}
+        # Keep this list editable when adding Molecule scenarios; a static list
+        # keeps the workflow compatible with both GitHub Actions and act.
+        scenario: ["kibana"]
+        # Keep these lists editable: Molecule covers every Stack/Python pair.
+        elastic: ["9.2.0", "9.4.0", "9.5.0"]
+        python: ["3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: ${{ matrix.python }}
+      - name: Export Stack version
+        run: |
+          echo "ELASTIC_VERSION=${{ matrix.elastic }}" >> "$GITHUB_ENV"
+          echo "KIBANA_VERSION=${{ matrix.elastic }}" >> "$GITHUB_ENV"
       - name: Install test dependencies
         run: |
           python -m pip install --upgrade pip
@@ -59,3 +58,7 @@ jobs:
         env:
           ANSIBLE_FORKS: "1"
         run: molecule test --scenario-name "${{ matrix.scenario }}"
+      - name: Clean up Molecule resources
+        if: always()
+        working-directory: extensions
+        run: molecule destroy --scenario-name "${{ matrix.scenario }}" || true

@@ -413,6 +413,11 @@ class KibanaClient:
             ConnectorService,
             DataViewService,
             EPMService,
+            AgentDownloadSourceService,
+            EnrollmentTokenService,
+            FleetOutputService,
+            FleetProxyService,
+            FleetServerHostService,
             MaintenanceWindowService,
             PackagePolicyService,
             RoleService,
@@ -470,6 +475,11 @@ class KibanaClient:
         self.saved_objects = SavedObjectService(self)
         self.maintenance_windows = MaintenanceWindowService(self)
         self.package_policies = PackagePolicyService(self)
+        self.fleet_outputs = FleetOutputService(self)
+        self.fleet_proxies = FleetProxyService(self)
+        self.fleet_server_hosts = FleetServerHostService(self)
+        self.agent_download_sources = AgentDownloadSourceService(self)
+        self.enrollment_tokens = EnrollmentTokenService(self)
 
     @property
     def _secret_values(self) -> list[str | None]:

@@ -6,6 +6,7 @@ on:
             - 'plugins/**'
             - 'roles/**'
             - '.github/workflows/ansible-test-sanity.yml'
+            - 'justfile'
 
     push:
         branches: [dev]
@@ -13,14 +14,17 @@ on:
             - 'plugins/**'
             - 'roles/**'
             - '.github/workflows/ansible-test-sanity.yml'
+            - 'justfile'
 
 jobs:
     ansible-test:
         runs-on: ubuntu-latest
         strategy:
             fail-fast: false
+            max-parallel: 1
             matrix:
-                python: ["3.11"]
+                # Keep this list editable when adding supported Python versions.
+                python: ["3.11", "3.12", "3.13"]
                 ansible_core: ["v2.19.5"]
         steps:
             - uses: actions/checkout@v4

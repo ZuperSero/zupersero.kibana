@@ -10,6 +10,13 @@ from .alerting import AlertingRuleService, MaintenanceWindowService
 from .connector import ConnectorService
 from .dataview import DataViewService
 from .epm import EPMService
+from .fleet import (
+    AgentDownloadSourceService,
+    EnrollmentTokenService,
+    FleetOutputService,
+    FleetProxyService,
+    FleetServerHostService,
+)
 from .package_policy import PackagePolicyService
 from .role import RoleService
 from .saved_object import SavedObjectService
@@ -22,6 +29,11 @@ __all__ = [
     "ConnectorService",
     "DataViewService",
     "EPMService",
+    "FleetOutputService",
+    "FleetProxyService",
+    "FleetServerHostService",
+    "AgentDownloadSourceService",
+    "EnrollmentTokenService",
     "PackagePolicyService",
     "MaintenanceWindowService",
     "RoleService",

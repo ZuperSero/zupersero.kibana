@@ -29,6 +29,11 @@ Included API modules:
 - `zupersero.kibana.data_view`
 - `zupersero.kibana.dashboard_transfer`
 - `zupersero.kibana.fleet_package`
+- `zupersero.kibana.fleet_output`
+- `zupersero.kibana.fleet_proxy`
+- `zupersero.kibana.fleet_server_host`
+- `zupersero.kibana.agent_download_source`
+- `zupersero.kibana.enrollment_token`
 - `zupersero.kibana.maintenance_window`
 - `zupersero.kibana.agent_policy`
 - `zupersero.kibana.package_policy`
@@ -54,6 +59,18 @@ just ruff
 just sanity
 just integration
 ```
+
+The local Fleet integration tests can use the Elasticsearch trial license.
+Run this against an authorized, disposable development cluster only:
+
+```sh
+just activate-trial
+```
+
+The recipe uses `ELASTICSEARCH_URL`, `ELASTICSEARCH_USERNAME`, and
+`ELASTICSEARCH_PASSWORD` when set, defaulting to `http://localhost:9200`,
+`elastic`, and `changeme`. It fails unless Elasticsearch confirms that the
+trial was started; it does not expose credentials in its output.
 
 ## Example
 

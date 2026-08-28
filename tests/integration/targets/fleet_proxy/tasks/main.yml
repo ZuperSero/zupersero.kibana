@@ -1,0 +1,45 @@
+---
+- name: Exercise Fleet proxy lifecycle
+  vars:
+    item_name: phase1-fleet-proxy
+  module_defaults:
+    zupersero.kibana.fleet_proxy:
+      url: http://127.0.0.1:5601
+      username: elastic
+      password: changeme
+  block:
+    - name: Preview proxy creation
+      zupersero.kibana.fleet_proxy:
+        name: "{{ item_name }}"
+        proxy_url: http://127.0.0.1:8080
+      check_mode: true
+      register: preview
+    - ansible.builtin.assert:
+        that: [preview is changed, preview.fleet_proxy.name == item_name]
+    - name: Create proxy
+      zupersero.kibana.fleet_proxy:
+        name: "{{ item_name }}"
+        proxy_url: http://127.0.0.1:8080
+      register: created
+    - ansible.builtin.assert:
+        that: [created is changed, created.fleet_proxy.id is defined]
+    - name: Reconcile proxy
+      zupersero.kibana.fleet_proxy:
+        id: "{{ created.fleet_proxy.id }}"
+        name: "{{ item_name }}"
+        proxy_url: http://127.0.0.1:8080
+      register: again
+    - ansible.builtin.assert:
+        that: [again is not changed]
+    - name: Delete proxy
+      zupersero.kibana.fleet_proxy:
+        id: "{{ created.fleet_proxy.id }}"
+        state: absent
+      register: deleted
+    - ansible.builtin.assert:
+        that: [deleted is changed, deleted.fleet_proxy is none]
+  always:
+    - zupersero.kibana.fleet_proxy:
+        id: "{{ created.fleet_proxy.id | default('') }}"
+        state: absent
+      when: created is defined and created.fleet_proxy.id is defined
