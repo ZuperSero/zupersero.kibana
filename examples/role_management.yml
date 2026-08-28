@@ -1,0 +1,24 @@
+---
+- name: Manage a Kibana read-only role
+  hosts: localhost
+  gather_facts: false
+  connection: local
+  module_defaults:
+    group/zupersero.kibana.kibana:
+      url: "{{ kibana_url }}"
+      api_key: "{{ kibana_api_key }}"
+  tasks:
+    - name: Create the role
+      zupersero.kibana.role:
+        name: observability-reader
+        description: Read-only observability access
+        elasticsearch:
+          cluster: [monitor]
+          indices:
+            - names: ["logs-*"]
+              privileges: [read, view_index_metadata]
+        kibana:
+          - base: [read]
+            feature:
+              dashboard: [read]
+            spaces: [default]

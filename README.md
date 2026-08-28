@@ -1,6 +1,22 @@
 # zupersero.kibana
+[![Molecule Tests](https://github.com/ZuperSero/zupersero.kibana/actions/workflows/molecule.yml/badge.svg?branch=main)](https://github.com/ZuperSero/zupersero.kibana/actions/workflows/molecule.yml)
+[![Integration Tests](https://github.com/ZuperSero/zupersero.kibana/actions/workflows/ansible-test-integration.yml/badge.svg?branch=main)](https://github.com/ZuperSero/zupersero.kibana/actions/workflows/ansible-test-integration.yml)
+[![Sanity Tests](https://github.com/ZuperSero/zupersero.kibana/actions/workflows/ansible-test-sanity.yml/badge.svg?branch=main)](https://github.com/ZuperSero/zupersero.kibana/actions/workflows/ansible-test-sanity.yml)
+[![Unit Tests](https://github.com/ZuperSero/zupersero.kibana/actions/workflows/ansible-test-unit.yml/badge.svg?branch=main)](https://github.com/ZuperSero/zupersero.kibana/actions/workflows/ansible-test-unit.yml)
 
-An Ansible collection for installing, configuring, and managing Kibana.
+An Ansible collection for installing, configuring, and managing Kibana. You can find idempotent modules to preform most common CRUD operations against kibana objects such as data views, alerting rules, spaces and much more. This collection in aiming to have the same amount of supported features as the official elastic terraform collection. 
+
+## Contribution 
+I implement these modules for my own use but if you are missing a module feel free to make a feature request or a PR containing the module you want included. This is something I do in my spare time so please 
+
+## Requirements
+The collection requires no other dependencies than ansible so it should work in most cases. It is tested against ansible 2.15 and higher versions. 
+
+Also check out my other collections:
+[zupersero.elastic](https://github.com/ZuperSero/zupersero.elastic) for
+Elasticsearch management and
+[zupersero.tailscale](https://github.com/ZuperSero/zupersero.tailscale) for
+Tailscale automation.
 
 ## Installation
 
@@ -22,71 +38,36 @@ module_defaults:
     api_key: "{{ kibana_api_key }}"
 ```
 
-Included API modules:
+## API reference
 
-- `zupersero.kibana.alerting_rule`
-- `zupersero.kibana.connector`
-- `zupersero.kibana.data_view`
-- `zupersero.kibana.dashboard_transfer`
-- `zupersero.kibana.fleet_package`
-- `zupersero.kibana.fleet_output`
-- `zupersero.kibana.fleet_proxy`
-- `zupersero.kibana.fleet_server_host`
-- `zupersero.kibana.agent_download_source`
-- `zupersero.kibana.enrollment_token`
-- `zupersero.kibana.maintenance_window`
-- `zupersero.kibana.agent_policy`
-- `zupersero.kibana.package_policy`
-- `zupersero.kibana.role`
-- `zupersero.kibana.saved_object`
-- `zupersero.kibana.saved_objects_export`
-- `zupersero.kibana.saved_objects_import`
-- `zupersero.kibana.space`
+The [Ansible Galaxy collection page](https://galaxy.ansible.com/ui/repo/published/zupersero/kibana/)
+and generated documentation contain the complete Kibana and Fleet module and
+role reference. Start with the examples above, or use
+`zupersero.kibana.kibana_object` when a typed module is not available for an
+API resource.
 
-## Development
+## Examples
 
-Install the development environment and run the role scenario:
-
-```sh
-just init
-just molecule
-```
-
-Run static and Ansible collection checks with:
-
-```sh
-just ruff
-just sanity
-just integration
-```
-
-The local Fleet integration tests can use the Elasticsearch trial license.
-Run this against an authorized, disposable development cluster only:
-
-```sh
-just activate-trial
-```
-
-The recipe uses `ELASTICSEARCH_URL`, `ELASTICSEARCH_USERNAME`, and
-`ELASTICSEARCH_PASSWORD` when set, defaulting to `http://localhost:9200`,
-`elastic`, and `changeme`. It fails unless Elasticsearch confirms that the
-trial was started; it does not expose credentials in its output.
+See the [examples directory](examples/) for ready-to-adapt playbooks. The
+collection also includes detailed examples on each module's documentation page.
 
 ## Releases
 
-Releases are published to Ansible Galaxy automatically by GitHub Actions.
-To publish a version:
+See the latest published versions on [Ansible Galaxy](https://galaxy.ansible.com/ui/repo/published/zupersero/kibana/)
+or browse the [GitHub releases](https://github.com/ZuperSero/zupersero.kibana/releases).
 
-1. Update the `version` in `galaxy.yml` and commit and push the change.
-2. Create a published GitHub Release with a tag matching that version (for
-   example, `1.0.0`).
-3. Confirm that the `Publish to Ansible Galaxy` workflow completes and that the
-   collection is available on Galaxy.
+## Development
 
-The repository must have a `GALAXY_API_KEY` secret with permission to publish
-the `zupersero` namespace. Prerelease GitHub Releases are not published.
+To get a local environment ready, install [uv](https://docs.astral.sh/uv/)
+first, then run `just init`. It creates the collection's Python virtual
+environment, installs the Ansible and Molecule tooling, and prepares the role
+scenario.
 
-## Example
+```sh
+just init
+```
+
+## Usage examples
 
 Custom Kibana roles preserve omitted privilege sections during updates. Set
 `replace: true` when the supplied role definition should clear omitted sections:
@@ -134,3 +115,5 @@ Kibana and attach to an existing Fleet agent policy:
           elasticsearch.hosts:
             - "http://elasticsearch:9200"
 ```
+## AI-assisted development
+This project was heavily written and tested using AI tools.

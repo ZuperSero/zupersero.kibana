@@ -1,0 +1,18 @@
+---
+- name: Configure a Fleet integration policy
+  hosts: localhost
+  gather_facts: false
+  connection: local
+  module_defaults:
+    group/zupersero.kibana.kibana:
+      url: "{{ kibana_url }}"
+      api_key: "{{ kibana_api_key }}"
+  tasks:
+    - name: Configure the system integration
+      zupersero.kibana.package_policy:
+        name: Linux system metrics
+        package: system
+        package_version: 1.49.0
+        policy_id: fleet-agent-policy
+        inputs: {}
+        vars: {}

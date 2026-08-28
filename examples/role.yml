@@ -1,0 +1,11 @@
+---
+- name: Install and configure Kibana
+  hosts: kibana
+  become: true
+  roles:
+    - role: zupersero.kibana.kibana
+      vars:
+        kibana_config_content:
+          server.host: "0.0.0.0"
+          elasticsearch.hosts:
+            - "http://elasticsearch:9200"
