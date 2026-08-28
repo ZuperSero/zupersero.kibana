@@ -1,0 +1,36 @@
+---
+- name: Test generic Kibana request module
+  module_defaults:
+    zupersero.kibana.kibana_request:
+      urls:
+        - http://localhost:5601
+      username: elastic
+      password: changeme
+
+  block:
+    - name: Read Kibana status
+      zupersero.kibana.kibana_request:
+        path: /api/status
+        method: GET
+        response_path: status
+      register: status_result
+
+    - name: Assert a read request does not report a change
+      ansible.builtin.assert:
+        that:
+          - status_result is not changed
+          - status_result.status == 200
+          - status_result.response.overall.level == 'available'
+
+    - name: Preview an action request in check mode
+      zupersero.kibana.kibana_request:
+        path: /api/status
+        method: POST
+      check_mode: true
+      register: action_check
+
+    - name: Assert an action is explicit and not sent in check mode
+      ansible.builtin.assert:
+        that:
+          - action_check is changed
+          - action_check.status is none

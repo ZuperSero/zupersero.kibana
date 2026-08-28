@@ -1,0 +1,38 @@
+# Changelog
+
+- Add typed `role` management for Kibana security roles with partial and
+  authoritative replacement, check mode, diff mode, and reserved-role
+  protection.
+
+All notable changes to `zupersero.kibana` are documented in this file.
+
+## Unreleased
+
+- Add automatic Ansible Galaxy publishing for matching published GitHub
+  releases.
+- Add the `just activate-trial` development recipe for explicitly activating
+  an Elasticsearch trial license before testing license-gated Fleet APIs.
+- Add shared Phase 0 API client foundations and generic object, request, and
+  information modules.
+- Add the typed `saved_object` module with space-aware, idempotent CRUD,
+  check-mode, diff-mode, sensitive-field handling, and preservation of omitted
+  attributes and references during partial updates.
+- Add supported `saved_objects_export` and `saved_objects_import` modules for
+  read-only opaque NDJSON exports and explicit multipart import actions.
+- Add the `dashboard_transfer` workflow for check-safe, dependency-aware,
+  opaque artifact transfers between Kibana spaces with predictable ID remapping
+  and conflict results.
+- Add typed `alerting_rule` management with explicit identifiers, preservation-
+  aware updates, rule enable/disable operations, action and parameter handling,
+  and check/diff support.
+- Add typed `maintenance_window` management with exact-name lookup, recurring
+  schedules, alert KQL scope, archive and delete lifecycles, server-derived
+  status returns, and check/diff support.
+- Add typed `agent_policy` and `package_policy` Fleet resources with generated
+  ID lookup, installed-package and agent-policy validation, preservation-aware
+  updates, secret redaction, check/diff support, and lifecycle integration
+  coverage.
+- Add the explicit `fleet_package` module for installed-package discovery,
+  installation, upgrades, and removal with check-mode previews.
+- Add typed Fleet administration modules for outputs, proxies, Fleet Server
+  hosts, Agent download sources, and enrollment-token lifecycle management.

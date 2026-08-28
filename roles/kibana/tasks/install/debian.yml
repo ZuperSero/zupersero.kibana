@@ -1,0 +1,52 @@
+---
+- name: Install repository dependencies
+  ansible.builtin.apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - gnupg
+    state: present
+    update_cache: true
+  async: "{{ ansible_check_mode | ternary(0, kibana_package_install_timeout) }}"
+  poll: 10
+
+- name: Download the Elastic signing key
+  ansible.builtin.get_url:
+    url: https://artifacts.elastic.co/GPG-KEY-elasticsearch
+    dest: /tmp/elastic.gpg
+    checksum: sha256:db52809c5f6b27f9c2bed45cb43e398c659275f3d35305653c6750a0db90f5eb
+    owner: root
+    group: root
+    mode: "0644"
+    timeout: "{{ kibana_download_timeout }}"
+
+- name: Ensure the APT keyring directory exists
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install the Elastic signing key
+  ansible.builtin.command:
+    cmd: gpg --dearmor -o /etc/apt/keyrings/elastic.gpg /tmp/elastic.gpg
+  args:
+    creates: /etc/apt/keyrings/elastic.gpg
+
+- name: Add the Elastic repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/elastic.gpg] https://artifacts.elastic.co/packages/{{ kibana_major_version }}.x/apt stable main"
+    filename: "elastic-{{ kibana_major_version }}.x"
+    state: present
+    update_cache: true
+  async: "{{ ansible_check_mode | ternary(0, kibana_package_install_timeout) }}"
+  poll: 10
+
+- name: Install Kibana
+  ansible.builtin.apt:
+    name: "kibana={{ kibana_version }}"
+    state: present
+    allow_downgrade: "{{ kibana_allow_downgrade }}"
+  async: "{{ ansible_check_mode | ternary(0, kibana_package_install_timeout) }}"
+  poll: 10

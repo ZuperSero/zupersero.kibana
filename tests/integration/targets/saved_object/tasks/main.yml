@@ -1,0 +1,273 @@
+---
+- name: Test saved_object module lifecycle in a Kibana space
+  vars:
+    saved_object_space: phase1-saved-object-space
+    saved_object_id: phase1-saved-object
+    saved_object_reference_id: phase1-saved-object-reference
+  module_defaults:
+    zupersero.kibana.saved_object:
+      url: http://127.0.0.1:5601
+      username: elastic
+      password: changeme
+      space: "{{ saved_object_space }}"
+    zupersero.kibana.space:
+      url: http://127.0.0.1:5601
+      username: elastic
+      password: changeme
+
+  block:
+    - name: Create saved object test space
+      zupersero.kibana.space:
+        id: "{{ saved_object_space }}"
+        name: Phase 1 Saved Object Integration
+        state: present
+
+    - name: Create saved object reference fixture
+      zupersero.kibana.saved_object:
+        type: index-pattern
+        id: "{{ saved_object_reference_id }}"
+        attributes:
+          title: "phase1-reference-*"
+        references: []
+        state: present
+
+    - name: Preview saved object creation
+      zupersero.kibana.saved_object:
+        type: index-pattern
+        id: "{{ saved_object_id }}"
+        attributes:
+          title: "phase1-logs-*"
+          timeFieldName: "@timestamp"
+          preservedAttribute: keep-me
+        references:
+          - id: "{{ saved_object_reference_id }}"
+            type: index-pattern
+            name: preserved-reference
+        state: present
+      check_mode: true
+      diff: true
+      register: create_check
+
+    - name: Assert saved object creation check mode
+      ansible.builtin.assert:
+        that:
+          - create_check is changed
+          - create_check.saved_object.id == saved_object_id
+          - create_check.saved_object.type == 'index-pattern'
+          - create_check.saved_object.attributes.title == 'phase1-logs-*'
+          - create_check.diff.after.attributes.timeFieldName == '@timestamp'
+
+    - name: Create saved object
+      zupersero.kibana.saved_object:
+        type: index-pattern
+        id: "{{ saved_object_id }}"
+        attributes:
+          title: "phase1-logs-*"
+          timeFieldName: "@timestamp"
+          preservedAttribute: keep-me
+        references:
+          - id: "{{ saved_object_reference_id }}"
+            type: index-pattern
+            name: preserved-reference
+        state: present
+      register: create_result
+
+    - name: Assert saved object creation
+      ansible.builtin.assert:
+        that:
+          - create_result is changed
+          - create_result.status in [200, 201]
+          - create_result.saved_object.id == saved_object_id
+          - create_result.saved_object.type == 'index-pattern'
+          - create_result.saved_object.attributes.title == 'phase1-logs-*'
+          - create_result.saved_object.attributes.preservedAttribute == 'keep-me'
+          - create_result.saved_object.references[0].id == saved_object_reference_id
+
+    - name: Read and reconcile created saved object
+      zupersero.kibana.saved_object:
+        type: index-pattern
+        id: "{{ saved_object_id }}"
+        attributes:
+          title: "phase1-logs-*"
+          timeFieldName: "@timestamp"
+          preservedAttribute: keep-me
+        references:
+          - id: "{{ saved_object_reference_id }}"
+            type: index-pattern
+            name: preserved-reference
+        state: present
+      register: create_again
+
+    - name: Assert saved object create is idempotent and returns current state
+      ansible.builtin.assert:
+        that:
+          - create_again is not changed
+          - create_again.status == 200
+          - create_again.saved_object.id == saved_object_id
+          - create_again.saved_object.attributes.title == 'phase1-logs-*'
+
+    - name: Preview saved object update
+      zupersero.kibana.saved_object:
+        type: index-pattern
+        id: "{{ saved_object_id }}"
+        attributes:
+          title: "phase1-metrics-*"
+        state: present
+      check_mode: true
+      diff: true
+      register: update_check
+
+    - name: Assert saved object update check mode
+      ansible.builtin.assert:
+        that:
+          - update_check is changed
+          - update_check.saved_object.attributes.title == 'phase1-metrics-*'
+          - update_check.saved_object.attributes.timeFieldName == '@timestamp'
+          - update_check.saved_object.attributes.preservedAttribute == 'keep-me'
+          - update_check.saved_object.references[0].id == saved_object_reference_id
+          - update_check.diff.before.attributes.title == 'phase1-logs-*'
+          - update_check.diff.after.attributes.title == 'phase1-metrics-*'
+          - update_check.diff.before.attributes.timeFieldName is not defined
+          - update_check.diff.after.attributes.timeFieldName is not defined
+
+    - name: Confirm update check mode did not mutate saved object
+      zupersero.kibana.saved_object:
+        type: index-pattern
+        id: "{{ saved_object_id }}"
+        attributes:
+          title: "phase1-logs-*"
+          timeFieldName: "@timestamp"
+          preservedAttribute: keep-me
+        references:
+          - id: "{{ saved_object_reference_id }}"
+            type: index-pattern
+            name: preserved-reference
+        state: present
+      register: after_update_check
+
+    - name: Assert update check mode was non-mutating
+      ansible.builtin.assert:
+        that:
+          - after_update_check is not changed
+
+    - name: Update saved object
+      zupersero.kibana.saved_object:
+        type: index-pattern
+        id: "{{ saved_object_id }}"
+        attributes:
+          title: "phase1-metrics-*"
+        state: present
+      register: update_result
+
+    - name: Assert saved object update
+      ansible.builtin.assert:
+        that:
+          - update_result is changed
+          - update_result.status == 200
+          - update_result.saved_object.attributes.title == 'phase1-metrics-*'
+          - update_result.saved_object.attributes.timeFieldName == '@timestamp'
+          - update_result.saved_object.attributes.preservedAttribute == 'keep-me'
+          - update_result.saved_object.references[0].id == saved_object_reference_id
+
+    - name: Read and reconcile updated saved object
+      zupersero.kibana.saved_object:
+        type: index-pattern
+        id: "{{ saved_object_id }}"
+        attributes:
+          title: "phase1-metrics-*"
+        state: present
+      register: update_again
+
+    - name: Assert saved object update is idempotent
+      ansible.builtin.assert:
+        that:
+          - update_again is not changed
+          - update_again.saved_object.attributes.title == 'phase1-metrics-*'
+          - update_again.saved_object.attributes.timeFieldName == '@timestamp'
+          - update_again.saved_object.attributes.preservedAttribute == 'keep-me'
+          - update_again.saved_object.references[0].id == saved_object_reference_id
+
+    - name: Preview saved object deletion
+      zupersero.kibana.saved_object:
+        type: index-pattern
+        id: "{{ saved_object_id }}"
+        state: absent
+      check_mode: true
+      diff: true
+      register: delete_check
+
+    - name: Assert saved object deletion check mode
+      ansible.builtin.assert:
+        that:
+          - delete_check is changed
+          - delete_check.saved_object.id == saved_object_id
+          - delete_check.diff.after == {}
+
+    - name: Confirm delete check mode did not mutate saved object
+      zupersero.kibana.saved_object:
+        type: index-pattern
+        id: "{{ saved_object_id }}"
+        attributes:
+          title: "phase1-metrics-*"
+          timeFieldName: "@timestamp"
+          preservedAttribute: keep-me
+        references:
+          - id: "{{ saved_object_reference_id }}"
+            type: index-pattern
+            name: preserved-reference
+        state: present
+      register: after_delete_check
+
+    - name: Assert delete check mode was non-mutating
+      ansible.builtin.assert:
+        that:
+          - after_delete_check is not changed
+
+    - name: Delete saved object
+      zupersero.kibana.saved_object:
+        type: index-pattern
+        id: "{{ saved_object_id }}"
+        state: absent
+      register: delete_result
+
+    - name: Assert saved object deletion
+      ansible.builtin.assert:
+        that:
+          - delete_result is changed
+          - delete_result.status in [200, 204]
+          - delete_result.saved_object is none
+
+    - name: Delete saved object again
+      zupersero.kibana.saved_object:
+        type: index-pattern
+        id: "{{ saved_object_id }}"
+        state: absent
+      register: delete_again
+
+    - name: Assert saved object deletion is idempotent
+      ansible.builtin.assert:
+        that:
+          - delete_again is not changed
+          - delete_again.status == 404
+          - delete_again.saved_object is none
+
+  always:
+    - name: Clean up saved object
+      zupersero.kibana.saved_object:
+        type: index-pattern
+        id: "{{ saved_object_id }}"
+        state: absent
+      failed_when: false
+
+    - name: Clean up saved object reference
+      zupersero.kibana.saved_object:
+        type: index-pattern
+        id: "{{ saved_object_reference_id }}"
+        state: absent
+      failed_when: false
+
+    - name: Clean up saved object test space
+      zupersero.kibana.space:
+        id: "{{ saved_object_space }}"
+        state: absent
+      failed_when: false

@@ -1,0 +1,65 @@
+---
+galaxy_info:
+  author: zupersero
+  description: Install and configure Kibana
+  license: GPL-3.0-or-later
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+    - name: Ubuntu
+      versions:
+        - noble
+    - name: EL
+      versions:
+        - "9"
+  galaxy_tags:
+    - elastic
+    - kibana
+    - observability
+
+dependencies: []
+
+argument_specs:
+  main:
+    short_description: Install and configure Kibana
+    description:
+      - Installs Kibana from the Elastic package repository.
+      - Writes the Kibana configuration and manages its systemd service.
+    options:
+      kibana_version:
+        description: Kibana package version to install.
+        type: str
+        default: "9.2.1"
+      kibana_allow_downgrade:
+        description: Allow the package manager to downgrade Kibana.
+        type: bool
+        default: false
+      kibana_download_timeout:
+        description: Timeout in seconds for repository signing key downloads.
+        type: int
+        default: 30
+      kibana_package_install_timeout:
+        description: Maximum runtime in seconds for package manager operations.
+        type: int
+        default: 1800
+      kibana_user:
+        description: User that owns Kibana configuration.
+        type: str
+        default: kibana
+      kibana_group:
+        description: Group that owns Kibana configuration.
+        type: str
+        default: kibana
+      kibana_config_path:
+        description: Kibana configuration directory.
+        type: path
+        default: /etc/kibana
+      kibana_systemd_service_overrides:
+        description: Content for a systemd drop-in override.
+        type: str
+        default: ""
+      kibana_config_content:
+        description: Complete Kibana configuration mapping.
+        type: dict

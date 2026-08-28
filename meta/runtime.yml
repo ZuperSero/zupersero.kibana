@@ -1,0 +1,26 @@
+---
+requires_ansible: ">=2.15.0"
+
+action_groups:
+  kibana:
+    - zupersero.kibana.agent_policy
+    - zupersero.kibana.alerting_rule
+    - zupersero.kibana.connector
+    - zupersero.kibana.dashboard_transfer
+    - zupersero.kibana.data_view
+    - zupersero.kibana.fleet_package
+    - zupersero.kibana.fleet_output
+    - zupersero.kibana.fleet_proxy
+    - zupersero.kibana.fleet_server_host
+    - zupersero.kibana.agent_download_source
+    - zupersero.kibana.enrollment_token
+    - zupersero.kibana.kibana_info
+    - zupersero.kibana.kibana_object
+    - zupersero.kibana.kibana_request
+    - zupersero.kibana.maintenance_window
+    - zupersero.kibana.package_policy
+    - zupersero.kibana.role
+    - zupersero.kibana.saved_object
+    - zupersero.kibana.saved_objects_export
+    - zupersero.kibana.saved_objects_import
+    - zupersero.kibana.space

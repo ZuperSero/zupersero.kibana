@@ -1,0 +1,87 @@
+---
+- name: Create Molecule infrastructure
+  hosts: localhost
+  gather_facts: false
+  vars:
+    molecule_stack_suffix: "{{ lookup('env', 'ELASTIC_VERSION') | default('9.2.0', true) | regex_replace('[^A-Za-z0-9_.-]', '-') }}"
+    molecule_network: "molecule-kibana-{{ molecule_stack_suffix }}"
+    elasticsearch_container: "molecule-kibana-elasticsearch-{{ molecule_stack_suffix }}"
+    molecule_inventory:
+      all:
+        children:
+          molecule:
+            hosts: {}
+  tasks:
+    - name: Create the Molecule network
+      community.docker.docker_network:
+        name: "{{ molecule_network }}"
+        state: present
+
+    - name: Start the Elasticsearch sidecar
+      community.docker.docker_container:
+        name: "{{ elasticsearch_container }}"
+        hostname: elasticsearch
+        image: "docker.elastic.co/elasticsearch/elasticsearch:{{ lookup('env', 'ELASTIC_VERSION') | default('9.2.0', true) }}"
+        state: started
+        recreate: true
+        networks:
+          - name: "{{ molecule_network }}"
+            aliases:
+              - elasticsearch
+        env:
+          discovery.type: single-node
+          xpack.security.enabled: "false"
+          ES_JAVA_OPTS: -Xms512m -Xmx512m
+
+    - name: Create target containers
+      community.docker.docker_container:
+        name: "{{ item.name }}"
+        image: "{{ item.image }}"
+        state: started
+        privileged: true
+        cgroupns_mode: host
+        volumes:
+          - /sys/fs/cgroup:/sys/fs/cgroup:rw
+        tmpfs:
+          - /run
+          - /run/lock
+        networks:
+          - name: "{{ molecule_network }}"
+        log_driver: json-file
+      loop: "{{ molecule_yml.platforms }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Add targets to the Molecule inventory
+      vars:
+        inventory_partial_yaml: |
+          all:
+            children:
+              molecule:
+                hosts:
+                  "{{ item.name }}":
+                    ansible_connection: community.docker.docker
+      ansible.builtin.set_fact:
+        molecule_inventory: >-
+          {{ molecule_inventory | combine(inventory_partial_yaml | from_yaml, recursive=true) }}
+      loop: "{{ molecule_yml.platforms }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Write the Molecule inventory
+      ansible.builtin.copy:
+        content: "{{ molecule_inventory | to_yaml }}"
+        dest: "{{ molecule_ephemeral_directory }}/inventory/molecule_inventory.yml"
+        mode: "0600"
+
+    - name: Refresh the inventory
+      ansible.builtin.meta: refresh_inventory
+
+- name: Validate target connectivity
+  hosts: molecule
+  gather_facts: false
+  tasks:
+    - name: Check the target kernel
+      ansible.builtin.raw: uname -a
+      register: kernel
+      changed_when: false

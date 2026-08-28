@@ -1,0 +1,216 @@
+# Copyright (c) 2025, zupersero
+# GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+---
+- name: Test connector module
+  module_defaults:
+    zupersero.kibana.connector:
+      url: http://localhost:5601
+      username: elastic
+      password: changeme
+    zupersero.kibana.space:
+      url: http://localhost:5601
+      username: elastic
+      password: changeme
+
+  block:
+    - name: Check email connector creation
+      zupersero.kibana.connector:
+        name: "test-email-connector"
+        connector_type_id: ".email"
+        config:
+          from: "test@test.com"
+          host: "localhost"
+          port: 25
+      check_mode: true
+      register: create_check
+
+    - name: Assert connector creation check mode
+      ansible.builtin.assert:
+        that:
+          - create_check is changed
+          - create_check.connector.name == "test-email-connector"
+          - create_check.connector.connector_type_id == ".email"
+
+    - name: Create email connector
+      zupersero.kibana.connector:
+        name: "test-email-connector"
+        connector_type_id: ".email"
+        config:
+          from: "test@test.com"
+          host: "localhost"
+          port: 25
+      register: create_result
+
+    - name: Assert connector created
+      ansible.builtin.assert:
+        that:
+          - create_result.changed
+          - create_result.connector.name == "test-email-connector"
+          - create_result.connector.connector_type_id == ".email"
+
+    - name: Reconcile email connector without changes
+      zupersero.kibana.connector:
+        id: "{{ create_result.connector.id }}"
+        name: "test-email-connector"
+        connector_type_id: ".email"
+        config:
+          from: "test@test.com"
+          host: "localhost"
+          port: 25
+      register: create_again
+
+    - name: Assert connector creation is idempotent
+      ansible.builtin.assert:
+        that:
+          - create_again is not changed
+
+    - name: Check email connector update
+      zupersero.kibana.connector:
+        id: "{{ create_result.connector.id }}"
+        name: "test-email-connector-updated"
+        connector_type_id: ".email"
+        config:
+          from: "test@test.com"
+          host: "localhost"
+          port: 2525
+      check_mode: true
+      register: update_check
+
+    - name: Assert connector update check mode
+      ansible.builtin.assert:
+        that:
+          - update_check is changed
+          - update_check.connector.name == "test-email-connector-updated"
+          - update_check.connector.config.port == 2525
+
+    - name: Update email connector
+      zupersero.kibana.connector:
+        id: "{{ create_result.connector.id }}"
+        name: "test-email-connector-updated"
+        connector_type_id: ".email"
+        config:
+          from: "test@test.com"
+          host: "localhost"
+          port: 2525
+      register: update_result
+
+    - name: Assert connector updated
+      ansible.builtin.assert:
+        that:
+          - update_result.changed
+          - update_result.connector.name == "test-email-connector-updated"
+          - update_result.connector.config.port == 2525
+
+    - name: Reconcile updated email connector
+      zupersero.kibana.connector:
+        id: "{{ create_result.connector.id }}"
+        name: "test-email-connector-updated"
+        connector_type_id: ".email"
+        config:
+          from: "test@test.com"
+          host: "localhost"
+          port: 2525
+      register: update_again
+
+    - name: Assert connector update is idempotent
+      ansible.builtin.assert:
+        that:
+          - update_again is not changed
+
+    - name: Check email connector deletion
+      zupersero.kibana.connector:
+        id: "{{ create_result.connector.id }}"
+        state: absent
+      check_mode: true
+      register: delete_check
+
+    - name: Assert connector deletion check mode
+      ansible.builtin.assert:
+        that:
+          - delete_check is changed
+
+    - name: Delete email connector
+      zupersero.kibana.connector:
+        id: "{{ create_result.connector.id }}"
+        state: absent
+      register: delete_result
+
+    - name: Assert connector was deleted
+      ansible.builtin.assert:
+        that:
+          - delete_result is changed
+
+    - name: Delete email connector again
+      zupersero.kibana.connector:
+        id: "{{ create_result.connector.id }}"
+        state: absent
+      register: delete_again
+
+    - name: Assert connector deletion is idempotent
+      ansible.builtin.assert:
+        that:
+          - delete_again is not changed
+
+    - name: Create connector test space
+      zupersero.kibana.space:
+        id: connector-integration-space
+        name: Connector Integration Space
+        state: present
+
+    - name: Create email connector in a space
+      zupersero.kibana.connector:
+        space: connector-integration-space
+        name: "test-space-email-connector"
+        connector_type_id: ".email"
+        config:
+          from: "space-test@test.com"
+          host: "localhost"
+          port: 25
+      register: space_create
+
+    - name: Assert connector was created in the space
+      ansible.builtin.assert:
+        that:
+          - space_create is changed
+          - space_create.connector.name == "test-space-email-connector"
+
+    - name: Reconcile connector in the same space
+      zupersero.kibana.connector:
+        space: connector-integration-space
+        id: "{{ space_create.connector.id }}"
+        name: "test-space-email-connector"
+        connector_type_id: ".email"
+        config:
+          from: "space-test@test.com"
+          host: "localhost"
+          port: 25
+      register: space_again
+
+    - name: Assert space-scoped connector is idempotent
+      ansible.builtin.assert:
+        that:
+          - space_again is not changed
+
+  always:
+    - name: Delete connector after tests
+      zupersero.kibana.connector:
+        id: "{{ create_result.connector.id }}"
+        state: absent
+      when: create_result.connector.id is defined
+      failed_when: false
+
+    - name: Delete space-scoped connector after tests
+      zupersero.kibana.connector:
+        space: connector-integration-space
+        id: "{{ space_create.connector.id }}"
+        state: absent
+      when: space_create.connector.id is defined
+      failed_when: false
+
+    - name: Delete connector test space after tests
+      zupersero.kibana.space:
+        id: connector-integration-space
+        state: absent
+      failed_when: false

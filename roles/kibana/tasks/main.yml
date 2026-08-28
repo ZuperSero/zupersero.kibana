@@ -1,0 +1,29 @@
+---
+- name: Gather distribution facts
+  ansible.builtin.setup:
+    gather_subset:
+      - distribution
+
+- name: Run pre-install tasks
+  ansible.builtin.include_tasks: pre_install.yml
+
+- name: Install Kibana
+  ansible.builtin.include_tasks: "install/{{ ansible_facts.os_family | lower }}.yml"
+
+- name: Configure Kibana
+  ansible.builtin.copy:
+    dest: "{{ kibana_config_path }}/kibana.yml"
+    content: "{{ kibana_config_content | to_nice_yaml(indent=2, sort_keys=false) }}"
+    owner: "{{ kibana_user }}"
+    group: "{{ kibana_group }}"
+    mode: "0660"
+  notify: Restart Kibana
+
+- name: Flush handlers
+  ansible.builtin.meta: flush_handlers
+
+- name: Ensure Kibana is enabled and started
+  ansible.builtin.service:
+    name: kibana
+    state: started
+    enabled: true

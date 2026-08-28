@@ -1,0 +1,290 @@
+---
+- name: Test maintenance_window lifecycle in a Kibana space
+  vars:
+    maintenance_window_space: phase1-maintenance-window-space
+    maintenance_window_name: Phase 1 Maintenance Window Integration
+  module_defaults:
+    zupersero.kibana.maintenance_window:
+      url: http://127.0.0.1:5601
+      username: elastic
+      password: changeme
+      space: "{{ maintenance_window_space }}"
+    zupersero.kibana.space:
+      url: http://127.0.0.1:5601
+      username: elastic
+      password: changeme
+
+  block:
+    - name: Create maintenance window test space
+      zupersero.kibana.space:
+        id: "{{ maintenance_window_space }}"
+        name: Phase 1 Maintenance Window Integration
+        state: present
+
+    - name: Reject creation through a missing explicit identifier
+      zupersero.kibana.maintenance_window:
+        id: phase1-missing-maintenance-window
+        name: Must Not Be Created By Identifier
+        schedule:
+          start: "2099-01-01T00:00:00.000Z"
+          duration: 1h
+      register: missing_explicit_id
+      ignore_errors: true
+
+    - name: Assert missing explicit identifier failed safely
+      ansible.builtin.assert:
+        that:
+          - missing_explicit_id is failed
+          - "'explicit `id` can manage only an existing window' in missing_explicit_id.msg"
+
+    - name: Verify missing explicit identifier created no name-based duplicate
+      zupersero.kibana.maintenance_window:
+        name: Must Not Be Created By Identifier
+        state: absent
+      register: missing_explicit_cleanup
+
+    - name: Assert missing explicit identifier did not create a window
+      ansible.builtin.assert:
+        that:
+          - missing_explicit_cleanup is not changed
+          - missing_explicit_cleanup.maintenance_window is none
+
+    - name: Preview recurring maintenance window creation
+      zupersero.kibana.maintenance_window:
+        name: "{{ maintenance_window_name }}"
+        enabled: true
+        schedule:
+          start: "2099-01-05T10:00:00.000Z"
+          duration: 2h
+          timezone: Europe/Copenhagen
+          recurring:
+            every: 2w
+            occurrences: 3
+            on_week_day: [MO, "+2TU"]
+        scope:
+          alerting:
+            kql: 'kibana.alert.rule.category: "Index threshold"'
+      check_mode: true
+      diff: true
+      register: create_check
+
+    - name: Assert maintenance window creation check mode
+      ansible.builtin.assert:
+        that:
+          - create_check is changed
+          - create_check.maintenance_window.name == maintenance_window_name
+          - create_check.maintenance_window.schedule.custom.recurring.every == '2w'
+          - create_check.maintenance_window.schedule.custom.recurring.onWeekDay == ['MO', '+2TU']
+          - create_check.diff.before == {}
+
+    - name: Create recurring maintenance window by name
+      zupersero.kibana.maintenance_window:
+        name: "{{ maintenance_window_name }}"
+        enabled: true
+        schedule:
+          start: "2099-01-05T10:00:00.000Z"
+          duration: 2h
+          timezone: Europe/Copenhagen
+          recurring:
+            every: 2w
+            occurrences: 3
+            on_week_day: [MO, "+2TU"]
+        scope:
+          alerting:
+            kql: 'kibana.alert.rule.category: "Index threshold"'
+      register: create_result
+
+    - name: Save generated maintenance window identifier
+      ansible.builtin.set_fact:
+        maintenance_window_id: "{{ create_result.maintenance_window.id }}"
+
+    - name: Assert recurring maintenance window creation
+      ansible.builtin.assert:
+        that:
+          - create_result is changed
+          - create_result.status in [200, 201]
+          - create_result.maintenance_window.id | length > 0
+          - create_result.maintenance_window.name == maintenance_window_name
+          - create_result.maintenance_window.title == maintenance_window_name
+          - create_result.maintenance_window.status in ['running', 'upcoming', 'finished', 'disabled']
+          - create_result.maintenance_window.schedule.custom.recurring.every == '2w'
+
+    - name: Reconcile recurring maintenance window by exact name
+      zupersero.kibana.maintenance_window:
+        name: "{{ maintenance_window_name }}"
+        enabled: true
+        schedule:
+          start: "2099-01-05T10:00:00.000Z"
+          duration: 2h
+          timezone: Europe/Copenhagen
+          recurring:
+            every: 2w
+            occurrences: 3
+            on_week_day: [MO, "+2TU"]
+        scope:
+          alerting:
+            kql: 'kibana.alert.rule.category: "Index threshold"'
+      register: create_again
+
+    - name: Assert name-based creation is idempotent
+      ansible.builtin.assert:
+        that:
+          - create_again is not changed
+          - create_again.maintenance_window.id == maintenance_window_id
+
+    - name: Preview one-time schedule replacement and disable
+      zupersero.kibana.maintenance_window:
+        id: "{{ maintenance_window_id }}"
+        enabled: false
+        schedule:
+          start: "2099-02-01T10:00:00.000Z"
+          duration: 3h
+          timezone: UTC
+      check_mode: true
+      diff: true
+      register: update_check
+
+    - name: Assert maintenance window update check mode
+      ansible.builtin.assert:
+        that:
+          - update_check is changed
+          - update_check.maintenance_window.enabled is false
+          - update_check.maintenance_window.schedule.custom.duration == '3h'
+          - update_check.maintenance_window.schedule.custom.recurring is not defined
+          - >-
+            update_check.maintenance_window.scope.alerting.query.kql ==
+            'kibana.alert.rule.category: "Index threshold"'
+
+    - name: Confirm update check mode did not mutate maintenance window
+      zupersero.kibana.maintenance_window:
+        id: "{{ maintenance_window_id }}"
+        enabled: true
+        schedule:
+          start: "2099-01-05T10:00:00.000Z"
+          duration: 2h
+          timezone: Europe/Copenhagen
+          recurring:
+            every: 2w
+            occurrences: 3
+            on_week_day: [MO, "+2TU"]
+      register: after_update_check
+
+    - name: Assert maintenance window update check was non-mutating
+      ansible.builtin.assert:
+        that:
+          - after_update_check is not changed
+
+    - name: Replace schedule with one-time window and disable
+      zupersero.kibana.maintenance_window:
+        id: "{{ maintenance_window_id }}"
+        enabled: false
+        schedule:
+          start: "2099-02-01T10:00:00.000Z"
+          duration: 3h
+          timezone: UTC
+      register: update_result
+
+    - name: Assert schedule replacement cleared recurrence and preserved scope
+      ansible.builtin.assert:
+        that:
+          - update_result is changed
+          - update_result.maintenance_window.enabled is false
+          - update_result.maintenance_window.schedule.custom.duration == '3h'
+          - update_result.maintenance_window.schedule.custom.recurring is not defined
+          - >-
+            update_result.maintenance_window.scope.alerting.query.kql ==
+            'kibana.alert.rule.category: "Index threshold"'
+
+    - name: Reconcile one-time maintenance window
+      zupersero.kibana.maintenance_window:
+        id: "{{ maintenance_window_id }}"
+        enabled: false
+        schedule:
+          start: "2099-02-01T10:00:00.000Z"
+          duration: 3h
+          timezone: UTC
+      register: update_again
+
+    - name: Assert maintenance window update is idempotent
+      ansible.builtin.assert:
+        that:
+          - update_again is not changed
+
+    - name: Preview maintenance window archive
+      zupersero.kibana.maintenance_window:
+        id: "{{ maintenance_window_id }}"
+        state: archived
+      check_mode: true
+      diff: true
+      register: archive_check
+
+    - name: Assert archive check mode
+      ansible.builtin.assert:
+        that:
+          - archive_check is changed
+          - archive_check.maintenance_window.status == 'archived'
+          - archive_check.diff.after.status == 'archived'
+
+    - name: Archive maintenance window
+      zupersero.kibana.maintenance_window:
+        id: "{{ maintenance_window_id }}"
+        state: archived
+      register: archive_result
+
+    - name: Assert maintenance window archive
+      ansible.builtin.assert:
+        that:
+          - archive_result is changed
+          - archive_result.status == 200
+          - archive_result.maintenance_window.status == 'archived'
+
+    - name: Archive maintenance window again
+      zupersero.kibana.maintenance_window:
+        id: "{{ maintenance_window_id }}"
+        state: archived
+      register: archive_again
+
+    - name: Assert maintenance window archive is idempotent
+      ansible.builtin.assert:
+        that:
+          - archive_again is not changed
+          - archive_again.maintenance_window.status == 'archived'
+
+    - name: Delete archived maintenance window
+      zupersero.kibana.maintenance_window:
+        id: "{{ maintenance_window_id }}"
+        state: absent
+      register: delete_result
+
+    - name: Assert archived maintenance window deletion
+      ansible.builtin.assert:
+        that:
+          - delete_result is changed
+          - delete_result.status in [200, 204]
+          - delete_result.maintenance_window is none
+
+    - name: Delete maintenance window again
+      zupersero.kibana.maintenance_window:
+        id: "{{ maintenance_window_id }}"
+        state: absent
+      register: delete_again
+
+    - name: Assert maintenance window deletion is idempotent
+      ansible.builtin.assert:
+        that:
+          - delete_again is not changed
+          - delete_again.status == 404
+          - delete_again.maintenance_window is none
+
+  always:
+    - name: Clean up maintenance window by name
+      zupersero.kibana.maintenance_window:
+        name: "{{ maintenance_window_name }}"
+        state: absent
+      failed_when: false
+
+    - name: Clean up maintenance window test space
+      zupersero.kibana.space:
+        id: "{{ maintenance_window_space }}"
+        state: absent
+      failed_when: false

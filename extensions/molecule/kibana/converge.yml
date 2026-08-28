@@ -1,0 +1,21 @@
+---
+- name: Converge
+  hosts: molecule
+  gather_facts: true
+  serial: 1
+  tasks:
+    - name: Apply the Kibana role
+      ansible.builtin.include_role:
+        name: zupersero.kibana.kibana
+      vars:
+        kibana_version: "{{ lookup('env', 'KIBANA_VERSION') | default('9.2.0', true) }}"
+        kibana_package_install_timeout: 900
+        kibana_systemd_service_overrides: |
+          [Service]
+          Environment=KIBANA_MOLECULE_TEST=enabled
+        kibana_config_content:
+          server.host: "0.0.0.0"
+          server.port: 5601
+          elasticsearch.hosts:
+            - http://elasticsearch:9200
+          telemetry.enabled: false

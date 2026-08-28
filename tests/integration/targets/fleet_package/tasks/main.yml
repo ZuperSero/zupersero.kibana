@@ -1,0 +1,92 @@
+---
+- name: Exercise Fleet package lifecycle
+  vars:
+    fleet_package_name: system
+  module_defaults:
+    zupersero.kibana.fleet_package:
+      url: http://127.0.0.1:5601
+      username: elastic
+      password: changeme
+  block:
+    - name: Read installed packages before package lifecycle
+      ansible.builtin.uri:
+        url: http://127.0.0.1:5601/api/fleet/epm/packages/installed
+        user: elastic
+        password: changeme
+        force_basic_auth: true
+        status_code: 200
+      register: fleet_package_endpoint
+
+    - name: Preview package installation
+      zupersero.kibana.fleet_package:
+        name: "{{ fleet_package_name }}"
+      check_mode: true
+      diff: true
+      register: install_check
+
+    - name: Assert package installation preview
+      ansible.builtin.assert:
+        that:
+          - install_check is changed
+          - install_check.operation == 'install'
+
+    - name: Install package from the configured EPM registry
+      zupersero.kibana.fleet_package:
+        name: "{{ fleet_package_name }}"
+      register: install_result
+
+    - name: Assert package installation
+      ansible.builtin.assert:
+        that:
+          - install_result is changed
+          - install_result.operation == 'install'
+
+    - name: Reconcile installed package
+      zupersero.kibana.fleet_package:
+        name: "{{ fleet_package_name }}"
+      register: install_again
+
+    - name: Assert package installation is idempotent
+      ansible.builtin.assert:
+        that:
+          - install_again is not changed
+
+    - name: Preview package uninstall
+      zupersero.kibana.fleet_package:
+        name: "{{ fleet_package_name }}"
+        state: absent
+        force: true
+      check_mode: true
+      diff: true
+      register: uninstall_check
+
+    - name: Assert package uninstall preview
+      ansible.builtin.assert:
+        that:
+          - uninstall_check is changed
+          - uninstall_check.operation == 'uninstall'
+
+    - name: Uninstall package
+      zupersero.kibana.fleet_package:
+        name: "{{ fleet_package_name }}"
+        state: absent
+        force: true
+      register: uninstall_result
+
+    - name: Assert package uninstall
+      ansible.builtin.assert:
+        that:
+          - uninstall_result is changed
+          - uninstall_result.fleet_package is none
+
+    - name: Uninstall package again
+      zupersero.kibana.fleet_package:
+        name: "{{ fleet_package_name }}"
+        state: absent
+        force: true
+      register: uninstall_again
+
+    - name: Assert repeated package uninstall is idempotent
+      ansible.builtin.assert:
+        that:
+          - uninstall_again is not changed

@@ -1,0 +1,250 @@
+# Copyright (c) 2025, zupersero
+# GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+---
+- name: Test data_view module
+  module_defaults:
+    zupersero.kibana.data_view:
+      url: http://localhost:5601
+      username: elastic
+      password: changeme
+
+  block:
+    - name: Create data view in check mode
+      zupersero.kibana.data_view:
+        id: test-integration-data-view
+        name: Test Integration Data View
+        title: "logs-*"
+        time_field: '@timestamp'
+        state: present
+      register: create_check
+      check_mode: true
+
+    - name: Assert check mode create shows changed
+      ansible.builtin.assert:
+        that:
+          - create_check is changed
+          - create_check.data_view.id == 'test-integration-data-view'
+          - create_check.data_view.name == 'Test Integration Data View'
+          - create_check.data_view.title == 'logs-*'
+
+    - name: Create data view
+      zupersero.kibana.data_view:
+        id: test-integration-data-view
+        name: Test Integration Data View
+        title: logs-*
+        time_field: '@timestamp'
+        state: present
+      register: create_result
+
+    - name: Assert data view was created
+      ansible.builtin.assert:
+        that:
+          - create_result is changed
+          - create_result.data_view.id == 'test-integration-data-view'
+          - create_result.data_view.name == 'Test Integration Data View'
+          - create_result.data_view.title == 'logs-*'
+          - create_result.data_view.timeFieldName == '@timestamp'
+
+    - name: Create data view again (should not change)
+      zupersero.kibana.data_view:
+        id: test-integration-data-view
+        name: Test Integration Data View
+        title: logs-*
+        time_field: '@timestamp'
+        state: present
+      register: create_again
+
+    - name: Assert data view was not changed
+      ansible.builtin.assert:
+        that:
+          - create_again is not changed
+
+    - name: Update data view title
+      zupersero.kibana.data_view:
+        id: test-integration-data-view
+        name: Test Integration Data View Updated
+        title: "metrics-*"
+        time_field: '@timestamp'
+        state: present
+      check_mode: true
+      register: update_check
+
+    - name: Assert check mode update shows changed without mutating
+      ansible.builtin.assert:
+        that:
+          - update_check is changed
+          - update_check.data_view.name == 'Test Integration Data View Updated'
+          - update_check.data_view.title == 'metrics-*'
+
+    - name: Confirm check mode did not update data view
+      zupersero.kibana.data_view:
+        id: test-integration-data-view
+        name: Test Integration Data View
+        title: logs-*
+        time_field: '@timestamp'
+        state: present
+      register: after_update_check
+
+    - name: Assert update check mode did not mutate the data view
+      ansible.builtin.assert:
+        that:
+          - after_update_check is not changed
+
+    - name: Update data view title and name
+      zupersero.kibana.data_view:
+        id: test-integration-data-view
+        name: Test Integration Data View Updated
+        title: "metrics-*"
+        time_field: '@timestamp'
+        state: present
+      register: update_result
+
+    - name: Assert data view was updated
+      ansible.builtin.assert:
+        that:
+          - update_result is changed
+          - update_result.data_view.id == 'test-integration-data-view'
+          - update_result.data_view.name == 'Test Integration Data View Updated'
+          - update_result.data_view.timeFieldName == '@timestamp'
+          - update_result.data_view.title == 'metrics-*'
+
+    - name: Reconcile updated data view
+      zupersero.kibana.data_view:
+        id: test-integration-data-view
+        name: Test Integration Data View Updated
+        title: "metrics-*"
+        time_field: '@timestamp'
+        state: present
+      register: update_again
+
+    - name: Assert data view update is idempotent
+      ansible.builtin.assert:
+        that:
+          - update_again is not changed
+
+    - name: Delete data view in check mode
+      zupersero.kibana.data_view:
+        id: test-integration-data-view
+        state: absent
+      check_mode: true
+      register: delete_check
+
+    - name: Assert check mode delete shows changed
+      ansible.builtin.assert:
+        that:
+          - delete_check is changed
+          - delete_check.data_view.id == 'test-integration-data-view'
+
+    - name: Confirm check mode did not delete data view
+      zupersero.kibana.data_view:
+        id: test-integration-data-view
+        name: Test Integration Data View Updated
+        title: "metrics-*"
+        time_field: '@timestamp'
+        state: present
+      register: after_delete_check
+
+    - name: Assert delete check mode did not mutate the data view
+      ansible.builtin.assert:
+        that:
+          - after_delete_check is not changed
+
+    - name: Delete data view
+      zupersero.kibana.data_view:
+        id: test-integration-data-view
+        state: absent
+      register: delete_result
+
+    - name: Assert data view was deleted
+      ansible.builtin.assert:
+        that:
+          - delete_result is changed
+          - delete_result.data_view.id == 'test-integration-data-view'
+
+    - name: Delete data view again
+      zupersero.kibana.data_view:
+        id: test-integration-data-view
+        state: absent
+      register: delete_again
+
+    - name: Assert data view deletion is idempotent
+      ansible.builtin.assert:
+        that:
+          - delete_again is not changed
+
+    - name: Create data view without optional time field
+      zupersero.kibana.data_view:
+        id: test-integration-data-view-no-time
+        name: Test Data View Without Time Field
+        title: "timeless-*"
+        state: present
+      register: no_time_create
+
+    - name: Assert optional time field can be omitted
+      ansible.builtin.assert:
+        that:
+          - no_time_create is changed
+          - no_time_create.data_view.id == 'test-integration-data-view-no-time'
+          - no_time_create.data_view.title == 'timeless-*'
+          - no_time_create.data_view.timeFieldName is not defined
+
+    - name: Reconcile data view without optional time field
+      zupersero.kibana.data_view:
+        id: test-integration-data-view-no-time
+        name: Test Data View Without Time Field
+        title: "timeless-*"
+        state: present
+      register: no_time_again
+
+    - name: Assert optional time field behavior is idempotent
+      ansible.builtin.assert:
+        that:
+          - no_time_again is not changed
+
+    - name: Make dataview using alias
+      zupersero.kibana.data_view:
+        id: test-integration-data-view
+        name: Test Integration Data View
+        index_pattern: alias-*
+        time_field: '@timestamp'
+        state: present
+      register: alias_create_result
+
+    - name: Assert data view using alias was created
+      ansible.builtin.assert:
+        that:
+          - alias_create_result is changed
+          - alias_create_result.data_view.id == 'test-integration-data-view'
+          - alias_create_result.data_view.indexPattern == 'alias-*'
+
+
+    - name: Update using alias
+      zupersero.kibana.data_view:
+        id: test-integration-data-view
+        name: Test Integration Data View Updated
+        index_pattern: alias-updated-*
+        time_field: '@timestamp'
+        state: present
+      register: alias_update_result
+
+    - name: Assert data view using alias was updated
+      ansible.builtin.assert:
+        that:
+          - alias_update_result is changed
+          - alias_update_result.data_view.id == 'test-integration-data-view'
+          - alias_update_result.data_view.name == 'Test Integration Data View Updated'
+          - alias_update_result.data_view.indexPattern == 'alias-updated-*'
+
+  always:
+    - name: Cleanup data views
+      zupersero.kibana.data_view:
+        id: "{{ _data_view }}"
+        state: absent
+      loop_control:
+        label: "{{ _data_view }}"
+        loop_var: _data_view
+      loop:
+        - test-integration-data-view
+        - test-integration-data-view-no-time

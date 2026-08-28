@@ -1,0 +1,90 @@
+---
+- name: Test saved_objects_export in a Kibana space
+  vars:
+    export_space: phase1-saved-objects-export
+    export_object_id: phase1-export-object
+  module_defaults:
+    zupersero.kibana.saved_object:
+      url: http://127.0.0.1:5601
+      username: elastic
+      password: changeme
+      space: "{{ export_space }}"
+    zupersero.kibana.saved_objects_export:
+      url: http://127.0.0.1:5601
+      username: elastic
+      password: changeme
+      space: "{{ export_space }}"
+    zupersero.kibana.space:
+      url: http://127.0.0.1:5601
+      username: elastic
+      password: changeme
+
+  block:
+    - name: Create saved-object export test space
+      zupersero.kibana.space:
+        id: "{{ export_space }}"
+        name: Phase 1 Saved Objects Export
+        state: present
+
+    - name: Create saved-object export fixture
+      zupersero.kibana.saved_object:
+        type: index-pattern
+        id: "{{ export_object_id }}"
+        attributes:
+          title: "phase1-export-*"
+          timeFieldName: "@timestamp"
+        references: []
+        state: present
+
+    - name: Export saved object in check mode
+      zupersero.kibana.saved_objects_export:
+        objects:
+          - type: index-pattern
+            id: "{{ export_object_id }}"
+        include_references_deep: true
+      check_mode: true
+      register: export_check
+
+    - name: Assert export is read-only and includes export details
+      ansible.builtin.assert:
+        that:
+          - export_check is not changed
+          - export_check.status == 200
+          - export_check.object_count == 1
+          - export_check.objects[0].id == export_object_id
+          - export_check.objects[0].type == 'index-pattern'
+          - export_check.objects[0].attributes.title == 'phase1-export-*'
+          - export_check.export_details.exportedCount == 1
+          - export_object_id in export_check.ndjson
+
+    - name: Export saved object without details
+      zupersero.kibana.saved_objects_export:
+        objects:
+          - type: index-pattern
+            id: "{{ export_object_id }}"
+        exclude_export_details: true
+      register: export_result
+
+    - name: Assert opaque export without details
+      ansible.builtin.assert:
+        that:
+          - export_result is not changed
+          - export_result.status == 200
+          - export_result.object_count == 1
+          - export_result.export_details is none
+          - export_result.ndjson.startswith('{')
+          - export_result.objects[0].attributes.timeFieldName == '@timestamp'
+
+  always:
+    - name: Clean up saved-object export fixture
+      zupersero.kibana.saved_object:
+        type: index-pattern
+        id: "{{ export_object_id }}"
+        state: absent
+      failed_when: false
+
+    - name: Clean up saved-object export test space
+      zupersero.kibana.space:
+        id: "{{ export_space }}"
+        state: absent
+      failed_when: false

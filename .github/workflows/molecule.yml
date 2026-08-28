@@ -1,0 +1,64 @@
+---
+name: Molecule Tests
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "extensions/**"
+      - "roles/**"
+      - "galaxy.yml"
+      - ".github/workflows/molecule.yml"
+      - "justfile"
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - "extensions/**"
+      - "roles/**"
+      - "galaxy.yml"
+      - ".github/workflows/molecule.yml"
+      - "justfile"
+
+jobs:
+  molecule:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        # Keep this list editable when adding Molecule scenarios; a static list
+        # keeps the workflow compatible with both GitHub Actions and act.
+        scenario: ["kibana"]
+        # Keep these lists editable: Molecule covers every Stack/Python pair.
+        elastic: ["9.2.0", "9.4.0", "9.5.0"]
+        python: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Export Stack version
+        run: |
+          echo "ELASTIC_VERSION=${{ matrix.elastic }}" >> "$GITHUB_ENV"
+          echo "KIBANA_VERSION=${{ matrix.elastic }}" >> "$GITHUB_ENV"
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ansible-core==2.19.5 molecule "molecule-plugins[docker]"
+      - name: Build and install the collection
+        run: |
+          ansible-galaxy collection build
+          ansible-galaxy collection install zupersero-kibana-*.tar.gz
+          ansible-galaxy collection install community.docker community.general
+      - name: Run Molecule
+        working-directory: extensions
+        env:
+          ANSIBLE_FORKS: "1"
+        run: molecule test --scenario-name "${{ matrix.scenario }}"
+      - name: Clean up Molecule resources
+        if: always()
+        working-directory: extensions
+        run: molecule destroy --scenario-name "${{ matrix.scenario }}" || true
